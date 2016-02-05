@@ -14,5 +14,4 @@ test_assign1_1.o: test_assign1_1.c test_helper.h storage_mgr.h dberror.h
 
 .PHONY: clean
 clean:
-	-rm *.o test_assign1_1 
-
+	-rm *.o test_assign1_1 test_pagefile.bin 
