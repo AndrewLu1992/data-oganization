@@ -15,10 +15,15 @@ typedef int RC;
 #define RC_WRITE_FAILED 3
 #define RC_READ_NON_EXISTING_PAGE 4
 
-/*Defined for assignment 1*/
+/* Defined for assignment 1 */
 #define RC_FILE_CLOSE_FAILED 5
 #define RC_FILE_DELETE_FAILED 6
 #define INV_PARAMETER  7
+
+/* error code for buffer management */
+#define RC_BM_BP_NOT_FOUND 8
+#define RC_BM_BP_REQUEST_PAGE_NUMBER_ILLEGAL 9
+#define RC_BM_BP_PAGEFRAME_INIT_FAILED 10
 
 #define RC_RM_COMPARE_VALUE_OF_DIFFERENT_DATATYPE 200
 #define RC_RM_EXPR_RESULT_IS_NOT_BOOLEAN 201
