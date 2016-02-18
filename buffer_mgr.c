@@ -1,28 +1,29 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "dberror.h"
 #include "storage_mgr.h"
 #include "buffer_mgr.h"
 
 
 // Init the PageFrameList that contines with page frame informaiton
-struct PageFrame * initPageFrameList(int numPages) {
+struct BM_PageFrame * initPageFrameList(int numPages) {
     int i;
     struct BM_PageFrame *HEAD = NULL;
     struct BM_PageFrame *Tail = NULL;
-    struct BM_PageFrame *PageFrame;
+    struct BM_PageFrame *NewPageFrame;
 
-    for (i = 0; i < numPages, i++) {
+    for (i = 0; i < numPages; i++) {
         // Fullfil the datastructure of BM_PageFrame        
-        PageFrame = (BM_PageFrame *)malloc (sizeof(BM_PageFrame));
-        PageFrame->PFN = i;
-        PageFrame->flages = Frame_active;
-        PageFrame->vm_start = calloc(1, PAGE_SIZE); // alloca pagesize frame
-        PageFrame->next = NULL;        
+        NewPageFrame = (BM_PageFrame *) malloc(sizeof(BM_PageFrame));
+        NewPageFrame->PFN = i;
+        NewPageFrame->flags = Frame_active;
+        NewPageFrame->vm_start = (BM_FrameAddress) calloc(1, PAGE_SIZE); // alloca pagesize frame
+        NewPageFrame->next = NULL;         
 
         if (0 == i)
-            HEAD = Tail= PageFrame;
+            HEAD = Tail= NewPageFrame;
         else
-            Tail->next = PageFrame;
+            Tail->next = NewPageFrame;
             Tail = Tail->next;    
     }
 
@@ -30,25 +31,22 @@ struct PageFrame * initPageFrameList(int numPages) {
 }
 
 //Create a buffer pool for an existing page file
-RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, 
-          const int numPages, ReplacementStrategy strategy, 
-          void *stratData) {
-
+RC initBufferPool(BM_BufferPool* const bm, const char* const pageFileName, const int numPages, ReplacementStrategy strategy, void *stratData){  
     struct BM_PageFrame *PageFrameList = NULL;
 
     if (NULL == bm)
         return RC_BM_BP_NOT_FOUND;
     if (NULL == pageFileName)
         return RC_FILE_NOT_FOUND;
-    if (numberPages < 0)
+    if (numPages < 0)
         return RC_BM_BP_REQUEST_PAGE_NUMBER_ILLEGAL;
 
     PageFrameList = initPageFrameList(numPages);
     if (PageFrameList == NULL)
         return RC_BM_BP_PAGEFRAME_INIT_FAILED;
  
-    bm->pageFile = pageFileName;
-    bm->numberPages = numPages;
+    bm->pageFile = (char*) pageFileName;
+    bm->numPages = numPages;
     bm->mgmtData = PageFrameList;
     bm->strategy = strategy;
 
@@ -58,7 +56,7 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName,
 RC shutdownBufferPool(BM_BufferPool *const bm) {
     int ret = 0;
  
-    ret = DestroyPageFrameList(bm->mgmtData);
+    //ret = DestroyPageFrameList(bm->mgmtData);
         
 
     return RC_OK;

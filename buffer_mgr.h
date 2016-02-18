@@ -35,8 +35,10 @@ typedef struct BM_PageHandle {
 
 //add by shuo for pageframe data structure
 
+typedef char* BM_FrameAddress;
+
 enum pageflags {
-    Frame_locked = 0;
+    Frame_locked = 0,
     Frame_error,
     Frame_referenced,
     Frame_dirty,
@@ -48,16 +50,16 @@ enum pageflags {
     Frame_swapcache,
     Frame_cached,
     Frame_uncached,
-}
+}pageflags;
 
 /* PageFrame is the basic unit to maintain disk page in memory */
 typedef struct BM_PageFrame {
     unsigned int PFN;       // Page Frame Number
     unsigned long flags;    // Atomic Flags
      
-    unsigned long vm_start;   // Frame Memory address
+    BM_FrameAddress vm_start;   // Frame Memory address
     struct BM_PageFrame *next;
-}
+} BM_PageFrame;
 
 // convenience macros
 #define MAKE_POOL()					\
