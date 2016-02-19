@@ -55,9 +55,9 @@ enum pageflags {
 /* PageFrame is the basic unit to maintain disk page in memory */
 typedef struct BM_PageFrame {
     unsigned int PFN;       // Page Frame Number
-    unsigned long flags;    // Atomic Flags
-     
-    BM_FrameAddress vm_start;   // Frame Memory address
+    unsigned int flags;    // Atomic Flags
+    unsigned int fixCount;
+    struct BM_PageHandle pageHandle;
     struct BM_PageFrame *next;
 } BM_PageFrame;
 
