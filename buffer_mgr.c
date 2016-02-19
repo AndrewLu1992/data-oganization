@@ -16,7 +16,7 @@ struct BM_PageFrame * initPageFrameList(int numPages) {
         NewPageFrame = (BM_PageFrame *) malloc(sizeof(BM_PageFrame));
         NewPageFrame->PFN = i;
         NewPageFrame->fixCount = 0;
-        NewPageFrame->flags = Frame_uncached;
+        NewPageFrame->flags = Frame_EmpPage;
         NewPageFrame->pageHandle.data = (BM_FrameAddress) calloc(1, PAGE_SIZE); // alloca pagesize frame
         NewPageFrame->next = NULL;         
         if (0 == i)
@@ -75,7 +75,6 @@ RC DestroyPageFrameList(struct BM_PageFrame *FrameList, int numFrames) {
     return RC_OK;
 }
 
-
 // Rmove the pool
 RC shutdownBufferPool(BM_BufferPool *const bm) {
     int ret = 0;
@@ -91,7 +90,6 @@ RC forceFlushpages(BM_BufferPool *bm, struct BM_PageFrame *Frame) {
     int i, ret;
     SM_FileHandle fh;
     BM_PageHandle page = Frame->pageHandle;
- 
     
     printf("Enter %s\n", __func__);
     printf("Frame PageFrame No.:%d, flags %d, fixCount %d , pageNum %d\n", Frame->PFN, Frame->flags, Frame->fixCount, Frame->pageHandle.pageNum);
@@ -122,7 +120,7 @@ RC forceFlushPool(BM_BufferPool *const bm) {
     
     printf("Enter %s\n", __func__);
     for (i = 0; i < numFrames; i++) {
-        if (curFrame->fixCount == 0) {}
+        if ((curFrame->fixCount == 0) && (curFrame->flags & Frame_dirty))
             forceFlushpages(bm, curFrame);            
     }
 
@@ -162,17 +160,40 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page,
 
 // Statistics Interface
 PageNumber *getFrameContents (BM_BufferPool *const bm) {
-    printf("Enter %s\n", __func__);
+    int *PageNumArray = NULL;
+    int i;
 
-    printf("exit %s\n", __func__);
-    return RC_OK;
+    BM_PageFrame *frame = bm->mgmtData;
+
+    PageNumArray = (int *)malloc(bm->numPages * sizeof(int));
+
+    for (i = 0; i < bm->numPages; i++) {
+        if(Frame_EmpPage == frame->flags)
+            PageNumArray[i] = NO_PAGE;
+        else
+            PageNumArray[i] = frame->pageHandle.pageNum;
+        frame = frame->next;
+    }
+
+    return PageNumArray;
 }
 
 bool *getDirtyFlags (BM_BufferPool *const bm) {
-    printf("Enter %s\n", __func__);
+    int i;
+    bool *DirtyFlagArray = NULL;
+    BM_PageFrame *frame = bm->mgmtData;
 
-    printf("exit %s\n", __func__);
-    return RC_OK;
+    DirtyFlagArray = (bool *)malloc(bm->numPages * sizeof(bool));
+
+    for (i = 0; i < bm->numPages; i++) {
+        if(Frame_EmpPage == frame->flags)
+            DirtyFlagArray[i] = DIRTY_CLEAN;
+        else
+            DirtyFlagArray[i] = frame->flags & Frame_dirty;
+        frame = frame->next;
+    }
+
+    return DirtyFlagArray;
 }
 
 int *getFixCounts (BM_BufferPool *const bm) {

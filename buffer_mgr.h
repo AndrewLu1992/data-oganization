@@ -19,6 +19,7 @@ typedef enum ReplacementStrategy {
 // Data Types and Structures
 typedef int PageNumber;
 #define NO_PAGE -1
+#define DIRTY_CLEAN   0
 
 typedef struct BM_BufferPool {
   char *pageFile;
@@ -38,7 +39,7 @@ typedef struct BM_PageHandle {
 typedef char* BM_FrameAddress;
 
 enum pageflags {
-    Frame_locked = 0,
+    Frame_EmpPage = 0,
     Frame_dirty = 1,
     Frame_swapbacked = 2,
     Frame_cached = 4,
