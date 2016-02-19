@@ -16,7 +16,7 @@ struct BM_PageFrame * initPageFrameList(int numPages) {
         NewPageFrame = (BM_PageFrame *) malloc(sizeof(BM_PageFrame));
         NewPageFrame->PFN = i;
         NewPageFrame->fixCount = 0;
-        NewPageFrame->flags = Frame_active;
+        NewPageFrame->flags = Frame_uncached;
         NewPageFrame->pageHandle.data = (BM_FrameAddress) calloc(1, PAGE_SIZE); // alloca pagesize frame
         NewPageFrame->next = NULL;         
         if (0 == i)
@@ -60,7 +60,7 @@ RC DestroyPageFrameList(struct BM_PageFrame *FrameList, int numFrames) {
     int i, ret = 0;
 
     struct BM_PageHandle *pageHandler;
-    struct BM_PageFrame *curFrame, *nextFrame = FrameList;
+    struct BM_PageFrame *nextFrame, *curFrame = FrameList;
 
     printf("Enter %s\n", __func__);
     for (i=0; i < numFrames; i++) {
@@ -87,8 +87,44 @@ RC shutdownBufferPool(BM_BufferPool *const bm) {
     return ret;
 }
 
-RC forceFlushPool(BM_BufferPool *const bm) {
+RC forceFlushpages(BM_BufferPool *bm, struct BM_PageFrame *Frame) {
+    int i, ret;
+    SM_FileHandle fh;
+    BM_PageHandle page = Frame->pageHandle;
+ 
+    
     printf("Enter %s\n", __func__);
+    printf("Frame PageFrame No.:%d, flags %d, fixCount %d , pageNum %d\n", Frame->PFN, Frame->flags, Frame->fixCount, Frame->pageHandle.pageNum);
+    ret = openPageFile(bm->pageFile, &fh);
+    if (RC_OK != ret)
+        return RC_FILE_HANDLE_NOT_INIT;
+
+    ret = writeBlock(page.pageNum, &fh, page.data);
+    if (RC_OK != ret) {
+        closePageFile(&fh);
+        printf("%s Write Block Fail\n", __func__);
+        return RC_WRITE_FAILED;
+    }
+
+    closePageFile(&fh);
+
+   //  forceFlushpages(bm, curFrame);            
+
+    printf("Exit %s\n", __func__);
+    return ret;
+}
+
+RC forceFlushPool(BM_BufferPool *const bm) {
+    int ret = 0;
+    int i;
+    unsigned int numFrames = bm->numPages;
+    struct BM_PageFrame *curFrame = bm->mgmtData;
+    
+    printf("Enter %s\n", __func__);
+    for (i = 0; i < numFrames; i++) {
+        if (curFrame->fixCount == 0) {}
+            forceFlushpages(bm, curFrame);            
+    }
 
     printf("exit %s\n", __func__);
     return RC_OK;

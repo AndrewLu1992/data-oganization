@@ -39,17 +39,10 @@ typedef char* BM_FrameAddress;
 
 enum pageflags {
     Frame_locked = 0,
-    Frame_error,
-    Frame_referenced,
-    Frame_dirty,
-    Frame_lru,
-    Frame_active,
-    Frame_slab,
-    Frame_swapbacked,
-    Frame_reclaim,
-    Frame_swapcache,
-    Frame_cached,
-    Frame_uncached,
+    Frame_dirty = 1,
+    Frame_swapbacked = 2,
+    Frame_cached = 4,
+    Frame_uncached = 8,
 }pageflags;
 
 /* PageFrame is the basic unit to maintain disk page in memory */
