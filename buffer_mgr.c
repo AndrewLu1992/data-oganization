@@ -4,7 +4,6 @@
 #include "storage_mgr.h"
 #include "buffer_mgr.h"
 
-
 // Init the PageFrameList that contines with page frame informaiton
 struct BM_PageFrame * initPageFrameList(int numPages) {
     int i;
@@ -52,34 +51,8 @@ RC initBufferPool(BM_BufferPool* const bm, const char* const pageFileName, const
     return RC_OK;
 }
 
-//Destroy the Frame in the memory
-RC DestroyPageFrameList(struct BM_PageFrame *FrameList, int numFrames) {
-    int i, ret = 0;
-
-    struct BM_PageHandle *pageHandler;
-    struct BM_PageFrame *nextFrame, *curFrame = FrameList;
-
-    for (i=0; i < numFrames; i++) {
-        free(curFrame->pageHandle.data);   //free page data in memory 
-        nextFrame = curFrame->next;
-
-        free(curFrame);                    //free PageFrame 
-        curFrame = nextFrame;
-    }
-    
-    return RC_OK;
-}
-
-// Rmove the pool
-RC shutdownBufferPool(BM_BufferPool *const bm) {
-    int ret = 0;
- 
-    ret = DestroyPageFrameList(bm->mgmtData, bm->numPages);
-
-    return ret;
-}
-
-RC forceFlushpages(BM_BufferPool *bm, struct BM_PageFrame *Frame) {
+/*
+RC forceFlushpage(BM_BufferPool *bm, struct BM_PageFrame *Frame) {
     int i, ret;
     SM_FileHandle fh;
     BM_PageHandle page = Frame->pageHandle;
@@ -92,13 +65,42 @@ RC forceFlushpages(BM_BufferPool *bm, struct BM_PageFrame *Frame) {
     ret = writeBlock(page.pageNum, &fh, page.data);
     if (RC_OK != ret) {
         closePageFile(&fh);
-        printf("%s Write Block Fail\n", __func__);
+        printf("%s Write Page %d Fail\n", __func__, Frame->pageHandle.pageNum);
         return RC_WRITE_FAILED;
     }
-
+    
+    Frame->flags |= Frame_swapbacked;   // Frame is swapbacked
+    Frame->flags &= Frame_dirty;        // Fame is not dirty
+    printf("[debug] Frame %d flags is %d\n", Frame->PFN, Frame->flags);
     closePageFile(&fh);
 
-   //  forceFlushpages(bm, curFrame);            
+    return ret;
+}
+*/
+
+// Rmove the pool
+RC shutdownBufferPool(BM_BufferPool *const bm) {
+    int ret = 0;
+    int i;
+    struct BM_PageFrame *curFrame, *nextFrame;
+
+    curFrame= nextFrame = bm->mgmtData;
+
+    while (curFrame != NULL) {
+        if ((curFrame->fixCount == 0) && (curFrame->flags & Frame_dirty)) {
+            ret = forcePage(bm, &(curFrame->pageHandle));
+            if (ret != RC_OK) {
+                printf("%s Flush Page %d faiil\n", __func__, curFrame->PFN);
+                return RC_BM_BP_FLUSH_PAGE_FAILED;
+            }
+        }    
+    
+        free(curFrame->pageHandle.data);   //free page data in memory 
+        nextFrame = curFrame->next;
+
+        free(curFrame);                    //free PageFrame 
+        curFrame = nextFrame;
+    }
 
     return ret;
 }
@@ -109,8 +111,11 @@ RC forceFlushPool(BM_BufferPool *const bm) {
     struct BM_PageFrame *curFrame = bm->mgmtData;
     
     for (i = 0; i < numFrames; i++) {
-        if ((curFrame->fixCount == 0) && (curFrame->flags & Frame_dirty))
-            forceFlushpages(bm, curFrame);            
+        if ((curFrame->fixCount == 0) && (curFrame->flags & Frame_dirty))   // page can not be flushed till no other thread used this frame and frame is dirty
+            forcePage(bm, &(curFrame->pageHandle));
+            curFrame->flags |= Frame_swapbacked;   // Frame is swapbacked
+            curFrame->flags &= Frame_dirty;        // Fame is not dirty
+            printf("[debug] Frame %d flags is %d\n", curFrame->PFN, curFrame->flags);
     }
 
     return RC_OK;
@@ -133,7 +138,22 @@ RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
 
 RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
 
-    printf("Enter %s\n", __func__);
+    int i, ret;
+    SM_FileHandle fh;
+    
+    ret = openPageFile(bm->pageFile, &fh);
+    if (RC_OK != ret)
+        return RC_FILE_HANDLE_NOT_INIT;
+
+    ret = writeBlock(page->pageNum, &fh, page->data);
+    if (RC_OK != ret) {
+        closePageFile(&fh);
+        printf("%s Write Page %d Fail\n", __func__, page->pageNum);
+        return RC_WRITE_FAILED;
+    }
+    
+    closePageFile(&fh);
+
     printf("exit %s\n", __func__);
     return RC_OK;
 }
