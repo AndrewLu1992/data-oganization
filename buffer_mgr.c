@@ -3,6 +3,7 @@
 #include "dberror.h"
 #include "storage_mgr.h"
 #include "buffer_mgr.h"
+#include "buffer_mgr_algorithm.h"
 
 // Init the PageFrameList that contines with page frame informaiton
 struct BM_PageFrame * initPageFrameList(int numPages) {
@@ -50,33 +51,6 @@ RC initBufferPool(BM_BufferPool* const bm, const char* const pageFileName, const
 
     return RC_OK;
 }
-
-/*
-RC forceFlushpage(BM_BufferPool *bm, struct BM_PageFrame *Frame) {
-    int i, ret;
-    SM_FileHandle fh;
-    BM_PageHandle page = Frame->pageHandle;
-    
-    printf("Frame PageFrame No.:%d, flags %d, fixCount %d , pageNum %d\n", Frame->PFN, Frame->flags, Frame->fixCount, Frame->pageHandle.pageNum);
-    ret = openPageFile(bm->pageFile, &fh);
-    if (RC_OK != ret)
-        return RC_FILE_HANDLE_NOT_INIT;
-
-    ret = writeBlock(page.pageNum, &fh, page.data);
-    if (RC_OK != ret) {
-        closePageFile(&fh);
-        printf("%s Write Page %d Fail\n", __func__, Frame->pageHandle.pageNum);
-        return RC_WRITE_FAILED;
-    }
-    
-    Frame->flags |= Frame_swapbacked;   // Frame is swapbacked
-    Frame->flags &= Frame_dirty;        // Fame is not dirty
-    printf("[debug] Frame %d flags is %d\n", Frame->PFN, Frame->flags);
-    closePageFile(&fh);
-
-    return ret;
-}
-*/
 
 // Rmove the pool
 RC shutdownBufferPool(BM_BufferPool *const bm) {
@@ -151,7 +125,7 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
         printf("%s Write Page %d Fail\n", __func__, page->pageNum);
         return RC_WRITE_FAILED;
     }
-    
+
     closePageFile(&fh);
 
     printf("exit %s\n", __func__);
@@ -160,7 +134,25 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
 
 RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, 
         const PageNumber pageNum) {
-    printf("Enter %s\n", __func__);
+    int ret;
+
+    switch(bm->strategy) {
+        case RS_FIFO:
+            ret = FIFO(bm, page, pageNum);
+            break;
+        case RS_LRU:
+            ret = LRU(bm, page, pageNum);
+            break;
+        case RS_CLOCK:
+            ret = CLOCK(bm, page, pageNum);
+            break;
+        case RS_LFU:
+            ret = LFU(bm, page, pageNum);
+            break;
+        case RS_LRU_K:
+            ret = LRU(bm, page, pageNum);
+            break;
+    }
 
     printf("exit %s\n", __func__);
     return RC_OK;
