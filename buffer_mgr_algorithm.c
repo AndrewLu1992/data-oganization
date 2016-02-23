@@ -4,6 +4,11 @@
 
 RC FIFO(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int ret;
+    struct BM_PageFrame *FrameListHead;
+
+    FrameListHead = (BM_PageFrame *)bm->mgmtData;
+        
+    
 
     return ret;    
 }

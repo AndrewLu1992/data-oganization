@@ -132,14 +132,40 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
     return RC_OK;
 }
 
-RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, 
-        const PageNumber pageNum) {
+RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int ret;
+    struct BM_PageFrame *curFrame, *FrameList =(BM_PageFrame *) bm->mgmtData;    
 
+    //Fetch the frame with ordered pageNum 
+    //ret = fetchFrame(FrameList, page, pageNum);
+    curFrame = FrameList;
+
+    while(curFrame != NULL) {
+        if (curFrame->flags == Frame_EmpPage) {
+            curFrame = curFrame->next;
+            continue;
+        }
+        else if(pageNum == curFrame->pageHandle.pageNum) {  //Page matched
+            page->pageNum = pageNum;
+            ++curFrame->fixCount; 
+            page->data = curFrame->pageHandle.data;
+            printf("pageNum %d find in the pagePool with FrameID %d\n",pageNum, curFrame->PFN);
+            return RC_OK;
+        }
+        else
+            curFrame = curFrame->next;
+    }
+
+    if ((NULL == curFrame) && (NULL == page))
+        printf("%s Page %d havd not find in the pagePool, load it from disk\n",
+                __func__, pageNum);
+
+    // Load page from disk to memory with ordered strategy
     switch(bm->strategy) {
         case RS_FIFO:
             ret = FIFO(bm, page, pageNum);
             break;
+
         case RS_LRU:
             ret = LRU(bm, page, pageNum);
             break;
