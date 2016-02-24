@@ -179,16 +179,16 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber
     
     // Load page from disk to memory with ordered strategy
     switch(bm->strategy) {
+        case RS_LRU:
+            ret = LFU(bm, page, pageNum);
+            break;
         case RS_FIFO:
             ret = FIFO(bm, page, pageNum);
-            break;
-        case RS_LRU:
-            ret = LRU(bm, page, pageNum);
             break;
         case RS_CLOCK:
             ret = CLOCK(bm, page, pageNum);
             break;
-        case RS_LFU:
+        case RS_LRU:
             ret = LFU(bm, page, pageNum);
             break;
         case RS_LRU_K:

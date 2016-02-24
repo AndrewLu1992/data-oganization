@@ -18,7 +18,7 @@ BM_PageFrame* findEmpPage(BM_PageFrame * FrameListHead) {
 }
 
 /*update frame list head, this could be used in FIFO, LRU*/
-RC maintainFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFrame) {
+RC maintainSortedFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFrame) {
     int ret;
     BM_PageFrame * Head = bm->mgmtData;
     
@@ -43,29 +43,29 @@ RC maintainFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFrame
 
 RC FIFO(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int ret, i;
-    struct BM_PageFrame *frameList, *curFrame, *selectedFrame;
+    struct BM_PageFrame *frameListHead, *curFrame, *selectedFrame;
     SM_FileHandle fh;
 
     ret = openPageFile(bm->pageFile, &fh);
     if (RC_OK != ret)
         return RC_FILE_HANDLE_NOT_INIT;
 
-    frameList = (BM_PageFrame *)bm->mgmtData;
+    frameListHead = (BM_PageFrame *)bm->mgmtData;
         
-    selectedFrame = findEmpPage(frameList);
+    selectedFrame = findEmpPage(frameListHead);
     
     // Implement FIFO algorithem to find the oldest frame
     if (NULL == selectedFrame) {
-        curFrame = frameList->prev; // check from the tail of list
+        curFrame = frameListHead; // check from the tail of list
         for(i = 0; i < bm->numPages; i++) {
             if(curFrame->fixCount == 0)
                 selectedFrame = curFrame;
             else
-                curFrame = curFrame->prev;
+                curFrame = curFrame->next;
         }
-    
     }
-    // No NON-Used framepage
+
+    // Do not have usable frame in memory 
     if (NULL == selectedFrame) {
         printf("%s All frame cannot be used\n", __func__);
         return RC_BM_BP_NO_FRAME_TO_REP;
@@ -82,16 +82,17 @@ RC FIFO(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pag
     if(selectedFrame->flags & Frame_dirty)
        writeBlock (selectedFrame->pageHandle.pageNum,  &fh, selectedFrame->pageHandle.data); 
 
-
     ret  = readBlock(pageNum, &fh, selectedFrame->pageHandle.data);
     
-    maintainFrameList(bm, selectedFrame);
+    maintainSortedFrameList(bm, selectedFrame);
 
     return ret;    
 }
 
 RC LRU(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int ret;
+    
+    
 
     return ret;    
 }
