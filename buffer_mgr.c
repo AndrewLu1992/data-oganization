@@ -18,12 +18,17 @@ struct BM_PageFrame * initPageFrameList(int numPages) {
         NewPageFrame->fixCount = 0;
         NewPageFrame->flags = Frame_EmpPage;
         NewPageFrame->pageHandle.data = (BM_FrameAddress) calloc(1, PAGE_SIZE); // alloca pagesize frame
-        NewPageFrame->next = NULL;         
+        NewPageFrame->next = NULL;
+        NewPageFrame->prev = NULL;
+        
         if (0 == i)
             HEAD = Tail= NewPageFrame;
         else{
+            HEAD->prev = NewPageFrame;
             Tail->next = NewPageFrame;
-            Tail = Tail->next;    
+            Tail->next->prev = Tail;
+            Tail->next->next = NULL;
+            Tail = Tail->next;
         }
     }
     return HEAD;
@@ -89,6 +94,7 @@ RC forceFlushPool(BM_BufferPool *const bm) {
             forcePage(bm, &(curFrame->pageHandle));
             curFrame->flags |= Frame_swapbacked;   // Frame is swapbacked
             curFrame->flags &= Frame_dirty;        // Fame is not dirty
+            curFrame = curFrame->next;
             printf("[debug] Frame %d flags is %d\n", curFrame->PFN, curFrame->flags);
     }
 
@@ -132,13 +138,12 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
     return RC_OK;
 }
 
-RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
+RC checkCachedPage(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int ret;
-    struct BM_PageFrame *curFrame, *FrameList =(BM_PageFrame *) bm->mgmtData;    
+    struct BM_PageFrame *curFrame =(BM_PageFrame *) bm->mgmtData;    
 
     //Fetch the frame with ordered pageNum 
     //ret = fetchFrame(FrameList, page, pageNum);
-    curFrame = FrameList;
 
     while(curFrame != NULL) {
         if (curFrame->flags == Frame_EmpPage) {
@@ -147,7 +152,7 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber
         }
         else if(pageNum == curFrame->pageHandle.pageNum) {  //Page matched
             page->pageNum = pageNum;
-            ++curFrame->fixCount; 
+            curFrame->fixCount += 1; 
             page->data = curFrame->pageHandle.data;
             printf("pageNum %d find in the pagePool with FrameID %d\n",pageNum, curFrame->PFN);
             return RC_OK;
@@ -156,16 +161,27 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber
             curFrame = curFrame->next;
     }
 
-    if ((NULL == curFrame) && (NULL == page))
-        printf("%s Page %d havd not find in the pagePool, load it from disk\n",
-                __func__, pageNum);
+    if ((NULL == curFrame) && (NULL == page)) {
+        ret = RC_BM_BP_NOT_FOUND; 
+        printf("%s Page %d havd not find in the pagePool, load it from disk\n", __func__, pageNum);
+    }
+    
+    return ret;
+}
 
+RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
+    int ret;
+    
+    //check page is in the memory or not
+    ret = checkCachedPage(bm, page, pageNum);
+    if (RC_OK == ret)
+        return RC_OK;
+    
     // Load page from disk to memory with ordered strategy
     switch(bm->strategy) {
         case RS_FIFO:
             ret = FIFO(bm, page, pageNum);
             break;
-
         case RS_LRU:
             ret = LRU(bm, page, pageNum);
             break;
