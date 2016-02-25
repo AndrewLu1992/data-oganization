@@ -25,9 +25,9 @@ RC maintainSortedFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selecte
     if(selectedFrame == Head->prev)
         return ret; 
     if(selectedFrame == Head) {
+        bm->mgmtData = Head->next;
         Head->next = NULL;
         Head->prev->next = Head;
-        bm->mgmtData = Head->next;
     }
     else {
         selectedFrame->prev->prev = selectedFrame;
@@ -83,16 +83,9 @@ RC FIFO(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pag
        writeBlock (selectedFrame->pageHandle.pageNum,  &fh, selectedFrame->pageHandle.data); 
 
     ret  = readBlock(pageNum, &fh, selectedFrame->pageHandle.data);
-    
+   
+    selectedFrame->fixCount += 1; 
     maintainSortedFrameList(bm, selectedFrame);
-
-    return ret;    
-}
-
-RC LRU(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
-    int ret;
-    
-    
 
     return ret;    
 }

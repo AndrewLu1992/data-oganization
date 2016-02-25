@@ -110,8 +110,14 @@ RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page) {
 }
 
 RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
+    struct BM_PageFrame *curFrame = bm->mgmtData;
+    
+    while(curFrame != NULL) {
+        if (curFrame->pageHandle.pageNum ==  page->pageNum)
+            curFrame->fixCount -=1;
+        curFrame = curFrame->next;
+    }
 
-    printf("Enter %s\n", __func__);
     printf("exit %s\n", __func__);
     return RC_OK;
 }
@@ -154,6 +160,7 @@ RC checkCachedPage(BM_BufferPool *const bm, BM_PageHandle *const page, const Pag
             page->pageNum = pageNum;
             curFrame->fixCount += 1; 
             page->data = curFrame->pageHandle.data;
+            maintainSortedFrameList(bm, curFrame);
             printf("pageNum %d find in the pagePool with FrameID %d\n",pageNum, curFrame->PFN);
             return RC_OK;
         }
@@ -180,19 +187,17 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber
     // Load page from disk to memory with ordered strategy
     switch(bm->strategy) {
         case RS_LRU:
-            ret = LFU(bm, page, pageNum);
-            break;
         case RS_FIFO:
             ret = FIFO(bm, page, pageNum);
             break;
         case RS_CLOCK:
             ret = CLOCK(bm, page, pageNum);
             break;
-        case RS_LRU:
+        case RS_LFU:
             ret = LFU(bm, page, pageNum);
             break;
         case RS_LRU_K:
-            ret = LRU(bm, page, pageNum);
+            ret = LRU_K(bm, page, pageNum);
             break;
     }
 
