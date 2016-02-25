@@ -103,8 +103,17 @@ RC forceFlushPool(BM_BufferPool *const bm) {
 
 // Buffer Manager Interface Access Pages
 RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page) {
-    printf("Enter %s\n", __func__);
+    struct BM_PageFrame *curFrame = bm->mgmtData;
+    
+    while(curFrame != NULL) {
+        if (curFrame->pageHandle.pageNum ==  page->pageNum)
+            curFrame->flags = curFrame->flags | Frame_dirty;
+        else 
+            curFrame = curFrame->next;
+    }
 
+    printf("Enter %s\n", __func__);
+    
     printf("exit %s\n", __func__);
     return RC_OK;
 }
@@ -115,7 +124,8 @@ RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
     while(curFrame != NULL) {
         if (curFrame->pageHandle.pageNum ==  page->pageNum)
             curFrame->fixCount -=1;
-        curFrame = curFrame->next;
+        else 
+            curFrame = curFrame->next;
     }
 
     printf("exit %s\n", __func__);
