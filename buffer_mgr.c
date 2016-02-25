@@ -16,6 +16,7 @@ struct BM_PageFrame * initPageFrameList(int numPages) {
         NewPageFrame = (BM_PageFrame *) malloc(sizeof(BM_PageFrame));
         NewPageFrame->PFN = i;
         NewPageFrame->fixCount = 0;
+        NewPageFrame->freq = 0;
         NewPageFrame->flags = Frame_EmpPage;
         NewPageFrame->pageHandle.data = (BM_FrameAddress) calloc(1, PAGE_SIZE); // alloca pagesize frame
         NewPageFrame->next = NULL;
@@ -170,7 +171,13 @@ RC checkCachedPage(BM_BufferPool *const bm, BM_PageHandle *const page, const Pag
             page->pageNum = pageNum;
             curFrame->fixCount += 1; 
             page->data = curFrame->pageHandle.data;
-            maintainSortedFrameList(bm, curFrame);
+
+            if(bm->strategy == RS_LRU)
+                maintainSortedFrameList(bm, curFrame);
+            if(bm->strategy == RS_LFU) {
+                curFrame->freq +=1;
+                maintainLFUFrameList(bm, curFrame);                
+            }
             printf("pageNum %d find in the pagePool with FrameID %d\n",pageNum, curFrame->PFN);
             return RC_OK;
         }
@@ -191,6 +198,7 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber
     
     //check page is in the memory or not
     ret = checkCachedPage(bm, page, pageNum);
+    
     if (RC_OK == ret)
         return RC_OK;
     

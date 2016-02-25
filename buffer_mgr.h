@@ -51,6 +51,7 @@ typedef struct BM_PageFrame {
     unsigned int PFN;       // Page Frame Number
     unsigned int flags;    // Atomic Flags
     unsigned int fixCount;
+    unsigned int freq;
     struct BM_PageHandle pageHandle;
     struct BM_PageFrame *prev;
     struct BM_PageFrame *next;

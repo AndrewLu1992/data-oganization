@@ -16,6 +16,7 @@ buffer_mgr.o: buffer_mgr.c buffer_mgr.h
 	cc -c buffer_mgr.c
 
 buffer_mgr_algorithm.o: buffer_mgr_algorithm.c buffer_mgr_algorithm.h
+	cc -c buffer_mgr_algorithm.c
 
 buffer_mgr_stat.o:buffer_mgr_stat.c  buffer_mgr_stat.h buffer_mgr_algorithm.h
 	cc -c buffer_mgr_stat.c 

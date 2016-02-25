@@ -9,4 +9,6 @@ RC LRU(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber page
 RC CLOCK(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum);
 RC LFU(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum);
 RC LRU_K(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum);
+RC maintainSortedFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFrame);
+RC maintainLFUFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFrame);
 #endif
