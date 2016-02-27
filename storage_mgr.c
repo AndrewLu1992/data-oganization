@@ -275,28 +275,31 @@ RC writeCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage){
 RC appendEmptyBlock (SM_FileHandle *fHandle){
     int ret;
     int last_pagePos;
-    
+   
     last_pagePos = fHandle->totalNumPages;
     SM_PageHandle EmptyPage = calloc(PAGE_SIZE, sizeof(char));
     
     ret = writeBlock(last_pagePos, fHandle, EmptyPage);    
- 
+     
     return ret; 
 }
 
 RC ensureCapacity (int numberOfPages, SM_FileHandle *fHandle){
-    int ret;
+    int ret = 0;
     int i;
     int GapPages;
 
     GapPages = numberOfPages - fHandle->totalNumPages;
 
-    if (GapPages > 0)
+    if (GapPages > 0) {
         while(GapPages) {
             ret = appendEmptyBlock(fHandle);
-            if (ret != RC_OK)
+            if (ret != RC_OK) {
+                printf("Append Empty Block fail\n");
                 return ret;
+            }
             --GapPages;
         }
+    }
     return ret;
 }

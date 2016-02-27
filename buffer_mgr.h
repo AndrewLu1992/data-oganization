@@ -7,6 +7,9 @@
 // Include bool DT
 #include "dt.h"
 
+extern int NumReadIO;
+extern int NumWriteIO;
+
 // Replacement Strategies
 typedef enum ReplacementStrategy {
   RS_FIFO = 0,

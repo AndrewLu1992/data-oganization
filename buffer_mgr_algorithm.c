@@ -7,8 +7,9 @@ BM_PageFrame* findEmpPage(BM_PageFrame * FrameListHead) {
     struct BM_PageFrame *curFrame = FrameListHead;
 
     while(curFrame != NULL) {
-        if(curFrame->flags == Frame_EmpPage)
+        if(curFrame->flags == Frame_EmpPage){
             return curFrame;
+        }
         else
             curFrame = curFrame->next;
     }
@@ -21,12 +22,13 @@ BM_PageFrame* pinPosition(BM_PageFrame * FrameListHead) {
     struct BM_PageFrame *curFrame = FrameListHead;
 
     while(curFrame != NULL) {
-        if(curFrame->fixCount == 0)
+        if(curFrame->fixCount == 0) {
             return curFrame;
+        }
         else
             curFrame = curFrame->next;
     }
-
+    
     // Do not find the empty page in the list
     return NULL;
 }
@@ -87,8 +89,8 @@ RC maintainLFUFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFr
 /*update frame list head, this could be used in FIFO, LRU*/
 RC maintainSortedFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFrame) {
     int ret;
-    BM_PageFrame * Head = bm->mgmtData;
-    
+    BM_PageFrame *Head = bm->mgmtData;
+
     if(selectedFrame == Head->prev)
         return ret; 
     if(selectedFrame == Head) {
@@ -97,12 +99,14 @@ RC maintainSortedFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selecte
         Head->prev->next = Head;
     }
     else {
-        selectedFrame->prev->prev = selectedFrame;
+        // Removed the frame from the list
         selectedFrame->prev->next = selectedFrame->next;
         selectedFrame->next->prev = selectedFrame->prev;
-        Head->prev->next = selectedFrame;        
+
+        Head->prev->next = selectedFrame;
         selectedFrame->prev = Head->prev;
         selectedFrame->next = NULL;
+        Head->prev = selectedFrame;
     }
     return ret;
 }
@@ -112,40 +116,58 @@ RC FIFO(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pag
     int ret, i;
     struct BM_PageFrame *frameListHead, *curFrame, *selectedFrame;
     SM_FileHandle fh;
-
-    ret = openPageFile(bm->pageFile, &fh);
-    if (RC_OK != ret)
-        return RC_FILE_HANDLE_NOT_INIT;
-
-    frameListHead = (BM_PageFrame *)bm->mgmtData;
-        
-    selectedFrame = findEmpPage(frameListHead);
     
-    // No Empty page, fetch suitable position to replace the page
-    if (NULL == selectedFrame) 
+    ret = openPageFile(bm->pageFile, &fh);
+    if (RC_OK != ret){
+        printf("%s, %d, Open Page File Fail\n", __func__,__LINE__);
+        return RC_FILE_HANDLE_NOT_INIT;
+    }
+    frameListHead = (BM_PageFrame *)bm->mgmtData;
+     
+    selectedFrame = findEmpPage(frameListHead);
+   
+        // No Empty page, fetch suitable position to replace the page
+    if (NULL == selectedFrame) { 
         selectedFrame = pinPosition(frameListHead);
+    }
 
     // Do not have usable frame in memory 
-    if (NULL == selectedFrame) {
+    if (NULL == selectedFrame) { 
         printf("%s All frame cannot be used\n", __func__);
         return RC_BM_BP_NO_FRAME_TO_REP;
     }
-   
+  
     //Prepare to read the page from disk to memory
-    ret = ensureCapacity(pageNum + 1, &fh);
-    if (RC_OK != ret) {
-        closePageFile(&fh);
-        return RC_READ_NON_EXISTING_PAGE;
+    if (fh.totalNumPages < pageNum +1) {
+        ret = ensureCapacity(pageNum +1, &fh);
+        NumWriteIO += pageNum +1 - fh.totalNumPages;
+        if (RC_OK != ret) {
+            closePageFile(&fh);
+            printf("%s, %d ensurecapacity fail\n",__func__, __LINE__ );
+            return RC_READ_NON_EXISTING_PAGE;
+        }
     }
 
     //Write framepage to disk if page is dirty
-    if(selectedFrame->flags & Frame_dirty)
-       writeBlock(selectedFrame->pageHandle.pageNum,  &fh, selectedFrame->pageHandle.data); 
+    if(selectedFrame->flags & Frame_dirty) {
+        writeBlock(selectedFrame->pageHandle.pageNum,  &fh, selectedFrame->pageHandle.data); 
+        selectedFrame->flags &= ~Frame_dirty;
+        NumWriteIO++;
+    }
 
     ret  = readBlock(pageNum, &fh, selectedFrame->pageHandle.data);
-   
+    NumReadIO++;
+     
+    page->pageNum = pageNum;
+    page->data = selectedFrame->pageHandle.data;
+    
     selectedFrame->fixCount += 1; 
+    selectedFrame->pageHandle.pageNum = pageNum;
+    selectedFrame->flags |=Frame_cached;
+    
     maintainSortedFrameList(bm, selectedFrame);
+
+    closePageFile(&fh);
 
     return ret;    
 }
@@ -182,19 +204,25 @@ RC LFU(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber page
     }
    
     //Prepare to read the page from disk to memory
-    ret = ensureCapacity(pageNum + 1, &fh);
+    ret = ensureCapacity(pageNum+1, &fh);
     if (RC_OK != ret) {
         closePageFile(&fh);
         return RC_READ_NON_EXISTING_PAGE;
     }
 
     //Write framepage to disk if page is dirty
-    if(selectedFrame->flags & Frame_dirty)
+    if(selectedFrame->flags & Frame_dirty) {
        writeBlock(selectedFrame->pageHandle.pageNum,  &fh, selectedFrame->pageHandle.data); 
+       selectedFrame->flags &= ~Frame_dirty;
+       NumWriteIO++;
+    }
 
     ret  = readBlock(pageNum, &fh, selectedFrame->pageHandle.data);
-   
+    NumReadIO++;
+
     selectedFrame->fixCount += 1; 
+    page->pageNum = pageNum;
+    page->data = selectedFrame->pageHandle.data;
     maintainLFUFrameList(bm, selectedFrame);
     
     return ret;

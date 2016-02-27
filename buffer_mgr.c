@@ -5,6 +5,9 @@
 #include "buffer_mgr.h"
 #include "buffer_mgr_algorithm.h"
 
+int NumReadIO;
+int NumWriteIO;
+
 // Init the PageFrameList that contines with page frame informaiton
 struct BM_PageFrame * initPageFrameList(int numPages) {
     int i;
@@ -18,6 +21,7 @@ struct BM_PageFrame * initPageFrameList(int numPages) {
         NewPageFrame->fixCount = 0;
         NewPageFrame->freq = 0;
         NewPageFrame->flags = Frame_EmpPage;
+        NewPageFrame->pageHandle.pageNum = i; // alloca pagesize frame
         NewPageFrame->pageHandle.data = (BM_FrameAddress) calloc(1, PAGE_SIZE); // alloca pagesize frame
         NewPageFrame->next = NULL;
         NewPageFrame->prev = NULL;
@@ -49,7 +53,10 @@ RC initBufferPool(BM_BufferPool* const bm, const char* const pageFileName, const
     PageFrameList = initPageFrameList(numPages);
     if (PageFrameList == NULL)
         return RC_BM_BP_PAGEFRAME_INIT_FAILED;
- 
+    
+    NumReadIO = 0;
+    NumWriteIO = 0;
+     
     bm->pageFile = (char*) pageFileName;
     bm->numPages = numPages;
     bm->mgmtData = PageFrameList;
@@ -89,14 +96,14 @@ RC forceFlushPool(BM_BufferPool *const bm) {
     int i, ret = 0;
     unsigned int numFrames = bm->numPages;
     struct BM_PageFrame *curFrame = bm->mgmtData;
-    
-    for (i = 0; i < numFrames; i++) {
-        if ((curFrame->fixCount == 0) && (curFrame->flags & Frame_dirty))   // page can not be flushed till no other thread used this frame and frame is dirty
+   
+    while (curFrame != NULL) {
+        if ((curFrame->fixCount == 0) && (curFrame->flags & Frame_dirty)) {   // page can not be flushed till no other thread used this frame and frame is dirty
             forcePage(bm, &(curFrame->pageHandle));
             curFrame->flags |= Frame_swapbacked;   // Frame is swapbacked
-            curFrame->flags &= Frame_dirty;        // Fame is not dirty
-            curFrame = curFrame->next;
-            printf("[debug] Frame %d flags is %d\n", curFrame->PFN, curFrame->flags);
+            curFrame->flags &= ~Frame_dirty;        // Fame is not dirty
+        }
+        curFrame = curFrame->next;
     }
 
     return RC_OK;
@@ -105,31 +112,31 @@ RC forceFlushPool(BM_BufferPool *const bm) {
 // Buffer Manager Interface Access Pages
 RC markDirty (BM_BufferPool *const bm, BM_PageHandle *const page) {
     struct BM_PageFrame *curFrame = bm->mgmtData;
-    
+   
     while(curFrame != NULL) {
-        if (curFrame->pageHandle.pageNum ==  page->pageNum)
+        if (curFrame->pageHandle.pageNum ==  page->pageNum) {
             curFrame->flags = curFrame->flags | Frame_dirty;
+            break;
+        }
         else 
             curFrame = curFrame->next;
     }
 
-    printf("Enter %s\n", __func__);
-    
-    printf("exit %s\n", __func__);
     return RC_OK;
 }
 
 RC unpinPage (BM_BufferPool *const bm, BM_PageHandle *const page) {
     struct BM_PageFrame *curFrame = bm->mgmtData;
-    
+ 
     while(curFrame != NULL) {
-        if (curFrame->pageHandle.pageNum ==  page->pageNum)
+        if (curFrame->pageHandle.pageNum ==  page->pageNum) {
             curFrame->fixCount -=1;
+            return RC_OK; 
+        }
         else 
             curFrame = curFrame->next;
     }
 
-    printf("exit %s\n", __func__);
     return RC_OK;
 }
 
@@ -148,10 +155,10 @@ RC forcePage (BM_BufferPool *const bm, BM_PageHandle *const page) {
         printf("%s Write Page %d Fail\n", __func__, page->pageNum);
         return RC_WRITE_FAILED;
     }
-
+    
+    NumWriteIO++;
     closePageFile(&fh);
 
-    printf("exit %s\n", __func__);
     return RC_OK;
 }
 
@@ -178,30 +185,28 @@ RC checkCachedPage(BM_BufferPool *const bm, BM_PageHandle *const page, const Pag
                 curFrame->freq +=1;
                 maintainLFUFrameList(bm, curFrame);                
             }
-            printf("pageNum %d find in the pagePool with FrameID %d\n",pageNum, curFrame->PFN);
             return RC_OK;
         }
         else
             curFrame = curFrame->next;
     }
 
-    if ((NULL == curFrame) && (NULL == page)) {
+    if ((NULL == curFrame) || (NULL == page)) {
         ret = RC_BM_BP_NOT_FOUND; 
-        printf("%s Page %d havd not find in the pagePool, load it from disk\n", __func__, pageNum);
     }
     
-    return ret;
+    return RC_BM_BP_EMP_POOL;
 }
 
 RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int ret;
-    
+       
     //check page is in the memory or not
     ret = checkCachedPage(bm, page, pageNum);
-    
+   
     if (RC_OK == ret)
         return RC_OK;
-    
+   
     // Load page from disk to memory with ordered strategy
     switch(bm->strategy) {
         case RS_LRU:
@@ -219,23 +224,26 @@ RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber
             break;
     }
 
-    printf("exit %s\n", __func__);
     return RC_OK;
 }
 
 // Statistics Interface
 PageNumber *getFrameContents (BM_BufferPool *const bm) {
-    int i;
+    int i, seq;
     int *PageNumArray = NULL;
     BM_PageFrame *frame = bm->mgmtData;
-
+    
     PageNumArray = (int *)malloc(bm->numPages * sizeof(int));
 
-    for (i = 0; i < bm->numPages; i++) {
-        if(Frame_EmpPage == frame->flags)
-            PageNumArray[i] = NO_PAGE;
-        else
-            PageNumArray[i] = frame->pageHandle.pageNum;
+    while(frame!=NULL) {
+        seq = frame->PFN;
+        
+        if(frame->flags == Frame_EmpPage){
+            PageNumArray[seq] = NO_PAGE;
+        }
+        else{
+            PageNumArray[seq] = frame->pageHandle.pageNum;
+        }
         frame = frame->next;
     }
 
@@ -243,17 +251,19 @@ PageNumber *getFrameContents (BM_BufferPool *const bm) {
 }
 
 bool *getDirtyFlags (BM_BufferPool *const bm) {
-    int i;
+    int i,seq;
     bool *DirtyFlagArray = NULL;
     BM_PageFrame *frame = bm->mgmtData;
 
     DirtyFlagArray = (bool *)malloc(bm->numPages * sizeof(bool));
 
     for (i = 0; i < bm->numPages; i++) {
-        if(Frame_EmpPage == frame->flags)
-            DirtyFlagArray[i] = DIRTY_CLEAN;
+        seq = frame->PFN;
+        //if(frame->pageHandle.pageNum == -1)
+        if(frame->flags == Frame_EmpPage)
+            DirtyFlagArray[seq] = DIRTY_CLEAN;
         else
-            DirtyFlagArray[i] = frame->flags & Frame_dirty;
+            DirtyFlagArray[seq] = frame->flags & Frame_dirty;
         frame = frame->next;
     }
 
@@ -261,17 +271,18 @@ bool *getDirtyFlags (BM_BufferPool *const bm) {
 }
 
 int *getFixCounts (BM_BufferPool *const bm) {
-    int i;
+    int i,seq;
     int *FixCountsArray = NULL;
     BM_PageFrame *frame = bm->mgmtData;
-
+    
     FixCountsArray= (int *)malloc(bm->numPages * sizeof(int));
 
     for (i = 0; i < bm->numPages; i++) {
+        seq = frame->PFN;
         if(Frame_EmpPage == frame->flags)
-            FixCountsArray[i] = 0;
+            FixCountsArray[seq] = 0;
         else
-            FixCountsArray[i] = frame->fixCount;
+            FixCountsArray[seq] = frame->fixCount;
         frame = frame->next;
     }
 
@@ -280,14 +291,10 @@ int *getFixCounts (BM_BufferPool *const bm) {
 
 int getNumReadIO (BM_BufferPool *const bm) {
 
-    printf("Enter %s\n", __func__);
-    printf("exit %s\n", __func__);
-    return RC_OK;
+    return NumReadIO;
 }
 
 int getNumWriteIO (BM_BufferPool *const bm) {
 
-    printf("Enter %s\n", __func__);
-    printf("exit %s\n", __func__);
-    return RC_OK;
+    return NumWriteIO;
 }
