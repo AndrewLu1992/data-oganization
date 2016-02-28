@@ -169,7 +169,6 @@ RC checkCachedPage(BM_BufferPool *const bm, BM_PageHandle *const page, const Pag
     //Fetch the frame with ordered pageNum 
     //ret = fetchFrame(FrameList, page, pageNum);
 
-    printf("%s,%d checkCachedPage %d\n", __func__,__LINE__, pageNum);
     while(curFrame != NULL) {
         if (curFrame->flags == Frame_EmpPage) {
             curFrame = curFrame->next;
@@ -204,7 +203,6 @@ RC checkCachedPage(BM_BufferPool *const bm, BM_PageHandle *const page, const Pag
 RC pinPage (BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int ret;
 
-    printf("%s,%d want to pin page %d\n", __func__, __LINE__, pageNum); 
     //check page is in the memory or not
     ret = checkCachedPage(bm, page, pageNum);
    

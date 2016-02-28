@@ -38,8 +38,6 @@ RC InsertAfterFrame(BM_BufferPool *const bm, struct BM_PageFrame *insertPos, str
     BM_PageFrame *Head = bm->mgmtData;
     BM_PageFrame *nextFrame;
     
-
-    printf("%s, %d selectedFrame%d freq %d insert after frame%d \n", __func__,__LINE__, selectedFrame->PFN, selectedFrame->freq, insertPos->PFN); 
     nextFrame = insertPos->next;
     
     selectedFrame->prev = insertPos;
@@ -58,7 +56,6 @@ RC maintainLFUFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFr
 
     BM_PageFrame *Head = bm->mgmtData;
 
-    printf("%s, %d selected frame is %d\n", __func__,__LINE__, selectedFrame->PFN);
    
     // If the selectedFrame is in the tail of list, do not need to maintain
     if (selectedFrame == Head->prev){
@@ -72,25 +69,20 @@ RC maintainLFUFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFr
         return ret;
     }
 
-    printf("%s, %d\n", __func__,__LINE__); 
     // Remove SelectedFrame from the list
     if (selectedFrame == bm->mgmtData) {
-    printf("%s, %d selected Frame %d is Head\n", __func__,__LINE__, selectedFrame->PFN); 
         bm->mgmtData = selectedFrame->next;
         selectedFrame->next->prev = selectedFrame->prev;
         
     }
     else {
-    printf("%s, %d remove selected frame %d from the list 1st \n", __func__,__LINE__, selectedFrame->PFN); 
         selectedFrame->next->prev = selectedFrame->prev;
         selectedFrame->prev->next = selectedFrame->next;
     }
-    printf("%s, %d\n", __func__,__LINE__); 
    
     // find the position that to insert the selected frame 
     while(1) {
         if (selectedFrame->freq > curFrame->freq) {
-            printf("%s, %d, selected frame %d freq is %d, curFrame is %d and freq is %d\n", __func__,__LINE__, selectedFrame->PFN, selectedFrame->freq, curFrame->PFN, curFrame->freq);
             if(curFrame->next != NULL)
                 curFrame = curFrame->next;
             else { 
@@ -99,24 +91,13 @@ RC maintainLFUFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFr
             }
         }
         else if (selectedFrame->freq <= curFrame->freq) {
-            printf("%s, %d, selected frame %d freq is %d, curFrame is %d and freq is %d\n", __func__,__LINE__, selectedFrame->PFN, selectedFrame->freq, curFrame->PFN, curFrame->freq);
                 insertPos = curFrame->prev; // Insert the frame before curFrame
                 break;
         }
     }
-    printf("%s, %d selectedFrame%d freq %d insert after frame%d \n", __func__,__LINE__, selectedFrame->PFN, selectedFrame->freq, insertPos->PFN); 
     InsertAfterFrame(bm, insertPos, selectedFrame);
 
     curFrame = bm->mgmtData;
-    printf("Head frame is %d, tail frame is %d\n", curFrame->PFN, curFrame->prev->PFN);
-   /* 
-    // Maintain Done
-    printf("Framelist maintain done\n");
-    while(curFrame != NULL){
-        printf("%s, %d Frame %d, freq %d\n", __func__, __LINE__, curFrame->PFN, curFrame->freq);
-        curFrame->next;
-    }
-*/
     return ret;
 }
 
