@@ -9,7 +9,7 @@ dberror.o: dberror.c dberror.h
 storage_mgr.o: storage_mgr.c storage_mgr.h dberror.h
 	cc -c storage_mgr.c
 
-test_assign2_1.o: test_assign2_1.c test_helper.h storage_mgr.h dberror.h
+test_lfu.o: test_assign2_1.c test_helper.h storage_mgr.h dberror.h
 	cc -c test_assign2_1.c
 
 buffer_mgr.o: buffer_mgr.c buffer_mgr.h

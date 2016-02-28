@@ -35,21 +35,16 @@ static void checkDummyPages(BM_BufferPool *bm, int num);
 
 static void testReadPage (void);
 
-static void testFIFO (void);
-static void testLRU (void);
 static void testLFU (void);
 
 // main method
 int 
 main (void) 
 {
-  initStorageManager();
-  testName = "";
-
   testCreatingAndReadingDummyPages();
+    printf("@@@@@@@%s,%d test dummy page donw\n", __func__,__LINE__);
   testReadPage();
-  testFIFO();
-  testLRU();
+    printf("#######%s,%d read page done\n", __func__,__LINE__);
   testLFU();
 }
 
@@ -81,7 +76,7 @@ createDummyPages(BM_BufferPool *bm, int num)
   int i;
   BM_PageHandle *h = MAKE_PAGE_HANDLE();
 
-  CHECK(initBufferPool(bm, "testbuffer.bin", 3, RS_FIFO, NULL));
+  CHECK(initBufferPool(bm, "testbuffer.bin", 3, RS_LFU, NULL));
   
   for (i = 0; i < num; i++)
     {
@@ -103,7 +98,7 @@ checkDummyPages(BM_BufferPool *bm, int num)
   BM_PageHandle *h = MAKE_PAGE_HANDLE();
   char *expected = malloc(sizeof(char) * 512);
 
-  CHECK(initBufferPool(bm, "testbuffer.bin", 3, RS_FIFO, NULL));
+  CHECK(initBufferPool(bm, "testbuffer.bin", 3, RS_LFU, NULL));
 
   for (i = 0; i < num; i++)
     {
@@ -128,175 +123,34 @@ testReadPage ()
   BM_PageHandle *h = MAKE_PAGE_HANDLE();
   testName = "Reading a page";
 
+printf("%s, %d\n", __func__,__LINE__);
+
   CHECK(createPageFile("testbuffer.bin"));
-  CHECK(initBufferPool(bm, "testbuffer.bin", 3, RS_FIFO, NULL));
+  CHECK(initBufferPool(bm, "testbuffer.bin", 3, RS_LFU, NULL));
   
+printf("%s, %d\n", __func__,__LINE__);
   CHECK(pinPage(bm, h, 0));
+printf("%s, %d\n", __func__,__LINE__);
   CHECK(pinPage(bm, h, 0));
 
+printf("%s, %d\n", __func__,__LINE__);
   CHECK(markDirty(bm, h));
 
+printf("%s, %d\n", __func__,__LINE__);
   CHECK(unpinPage(bm,h));
   CHECK(unpinPage(bm,h));
 
+printf("%s, %d\n", __func__,__LINE__);
   CHECK(forcePage(bm, h));
 
+printf("%s, %d\n", __func__,__LINE__);
   CHECK(shutdownBufferPool(bm));
   CHECK(destroyPageFile("testbuffer.bin"));
 
+printf("%s, %d\n", __func__,__LINE__);
   free(bm);
   free(h);
 
-  TEST_DONE();
-}
-
-void
-testFIFO ()
-{
-  // expected results
-  const char *poolContents[] = { 
-    "[0 0],[-1 0],[-1 0]" , 
-    "[0 0],[1 0],[-1 0]", 
-    "[0 0],[1 0],[2 0]", 
-    "[3 0],[1 0],[2 0]", 
-    "[3 0],[4 0],[2 0]",
-    "[3 0],[4 1],[2 0]",
-    "[3 0],[4 1],[5x0]",
-    "[6x0],[4 1],[5x0]",
-    "[6x0],[4 1],[0x0]",
-    "[6x0],[4 0],[0x0]",
-    "[6 0],[4 0],[0 0]"
-  };
-  const int requests[] = {0,1,2,3,4,4,5,6,0};
-  const int numLinRequests = 5;
-  const int numChangeRequests = 3;
-
-  int i;
-  BM_BufferPool *bm = MAKE_POOL();
-  BM_PageHandle *h = MAKE_PAGE_HANDLE();
-  testName = "Testing FIFO page replacement";
-
-  CHECK(createPageFile("testbuffer.bin"));
-
-  createDummyPages(bm, 100);
-
-  CHECK(initBufferPool(bm, "testbuffer.bin", 3, RS_FIFO, NULL));
-
-  // reading some pages linearly with direct unpin and no modifications
-  for(i = 0; i < numLinRequests; i++)
-    {
-      pinPage(bm, h, requests[i]);
-      unpinPage(bm, h);
-      ASSERT_EQUALS_POOL(poolContents[i], bm, "check pool content");
-    }
-
-  // pin one page and test remainder
-  i = numLinRequests;
-  pinPage(bm, h, requests[i]);
-  ASSERT_EQUALS_POOL(poolContents[i],bm,"pool content after pin page");
-
-  // read pages and mark them as dirty
-  for(i = numLinRequests + 1; i < numLinRequests + numChangeRequests + 1; i++)
-    {
-      pinPage(bm, h, requests[i]);
-      markDirty(bm, h);
-      unpinPage(bm, h);
-      ASSERT_EQUALS_POOL(poolContents[i], bm, "check pool content");
-    }
-
-  // flush buffer pool to disk
-  i = numLinRequests + numChangeRequests + 1;
-  h->pageNum = 4;
-  unpinPage(bm, h);
-  ASSERT_EQUALS_POOL(poolContents[i],bm,"unpin last page");
-  
-  i++;
-  forceFlushPool(bm);
-  ASSERT_EQUALS_POOL(poolContents[i],bm,"pool content after flush");
-
-  // check number of write IOs
-  ASSERT_EQUALS_INT(3, getNumWriteIO(bm), "check number of write I/Os");
-  ASSERT_EQUALS_INT(8, getNumReadIO(bm), "check number of read I/Os");
-
-  CHECK(shutdownBufferPool(bm));
-  CHECK(destroyPageFile("testbuffer.bin"));
-
-  free(bm);
-  free(h);
-  TEST_DONE();
-}
-
-// test the LRU page replacement strategy
-void
-testLRU (void)
-{
-  // expected results
-  const char *poolContents[] = { 
-    // read first five pages and directly unpin them
-    "[0 0],[-1 0],[-1 0],[-1 0],[-1 0]" , 
-    "[0 0],[1 0],[-1 0],[-1 0],[-1 0]", 
-    "[0 0],[1 0],[2 0],[-1 0],[-1 0]",
-    "[0 0],[1 0],[2 0],[3 0],[-1 0]",
-    "[0 0],[1 0],[2 0],[3 0],[4 0]",
-    // use some of the page to create a fixed LRU order without changing pool content
-    "[0 0],[1 0],[2 0],[3 0],[4 0]",
-    "[0 0],[1 0],[2 0],[3 0],[4 0]",
-    "[0 0],[1 0],[2 0],[3 0],[4 0]",
-    "[0 0],[1 0],[2 0],[3 0],[4 0]",
-    "[0 0],[1 0],[2 0],[3 0],[4 0]",
-    // check that pages get evicted in LRU order
-    "[0 0],[1 0],[2 0],[5 0],[4 0]",
-    "[0 0],[1 0],[2 0],[5 0],[6 0]",
-    "[7 0],[1 0],[2 0],[5 0],[6 0]",
-    "[7 0],[1 0],[8 0],[5 0],[6 0]",
-    "[7 0],[9 0],[8 0],[5 0],[6 0]"
-  };
-  const int orderRequests[] = {3,4,0,2,1};
-  const int numLRUOrderChange = 5;
-
-  int i;
-  int snapshot = 0;
-  BM_BufferPool *bm = MAKE_POOL();
-  BM_PageHandle *h = MAKE_PAGE_HANDLE();
-  testName = "Testing LRU page replacement";
-
-  CHECK(createPageFile("testbuffer.bin"));
-  createDummyPages(bm, 100);
-  CHECK(initBufferPool(bm, "testbuffer.bin", 5, RS_LRU, NULL));
-
-  // reading first five pages linearly with direct unpin and no modifications
-  for(i = 0; i < 5; i++)
-  {
-      pinPage(bm, h, i);
-      unpinPage(bm, h);
-      ASSERT_EQUALS_POOL(poolContents[snapshot++], bm, "check pool content reading in pages");
-  }
-
-  // read pages to change LRU order
-  for(i = 0; i < numLRUOrderChange; i++)
-  {
-      pinPage(bm, h, orderRequests[i]);
-      unpinPage(bm, h);
-      ASSERT_EQUALS_POOL(poolContents[snapshot++], bm, "check pool content using pages");
-  }
-
-  // replace pages and check that it happens in LRU order
-  for(i = 0; i < 5; i++)
-  {
-      pinPage(bm, h, 5 + i);
-      unpinPage(bm, h);
-      ASSERT_EQUALS_POOL(poolContents[snapshot++], bm, "check pool content using pages");
-  }
-
-  // check number of write IOs
-  ASSERT_EQUALS_INT(0, getNumWriteIO(bm), "check number of write I/Os");
-  ASSERT_EQUALS_INT(10, getNumReadIO(bm), "check number of read I/Os");
-
-  CHECK(shutdownBufferPool(bm));
-  CHECK(destroyPageFile("testbuffer.bin"));
-
-  free(bm);
-  free(h);
   TEST_DONE();
 }
 
@@ -333,7 +187,7 @@ void testLFU (void)
   int snapshot = 0;
   BM_BufferPool *bm = MAKE_POOL();
   BM_PageHandle *h = MAKE_PAGE_HANDLE();
-  testName = "Testing LFU page replacement";
+  testName = "Testing LRU page replacement";
 
   CHECK(createPageFile("testbuffer.bin"));
   createDummyPages(bm, 100);
