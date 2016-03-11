@@ -3,6 +3,8 @@
 #include "dberror.h"
 #include "buffer_mgr.h"
 
+#include <stdio.h>
+#include <stdlib.h>
 
 BM_BufferPool *bm;
 
