@@ -19,13 +19,13 @@ RC initRecordManager (void *mgmtData){
         printf("Create Page Fail\n");
         return ret;
     }
-    
+/*    
     ret = initBufferPool(bm, "database.bin", 5, RS_LFU, NULL);
     if (ret != RC_OK) {
         printf("Init Buffer POOL Fail\n");
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
     }
-
+*/
 	return ret;
 }
 
@@ -60,6 +60,11 @@ RC createTable (char *name, Schema *schema) {
         return RC_REC_TABLE_CREATE_FAILED;
     }
 
+    ret = initBufferPool(bm, name, 5, RS_LFU, NULL);
+    if (ret != RC_OK) {
+        printf("Init Buffer POOL Fail\n");
+        return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
+    }
 	return ret;
 }
 
