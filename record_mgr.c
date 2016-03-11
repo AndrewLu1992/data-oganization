@@ -60,8 +60,6 @@ RC createTable (char *name, Schema *schema) {
         return RC_REC_TABLE_CREATE_FAILED;
     }
 
-    
-
 	return ret;
 }
 
@@ -142,26 +140,31 @@ int getRecordSize (Schema *schema) {
 
 Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *typeLength, int keySize, int *keys) {
 	int ret = 0;
-    Schema *schm;
+    Schema *schema;
 
-    schm = malloc(sizeof(Schema));
-    if (schm == NULL) {
+    schema = malloc(sizeof(Schema));
+    if (schema == NULL) {
         printf("malloc schema size fail\n");
-        return schm;
+        return NULL;
     }
     
-    schm->numAttr = numAttr; 
-    schm->attrNames = attrNames;
-    schm->dataTypes = dataTypes;
-    schm->typeLength = typeLength;
-    schm->keyAttrs = keys; 
-    schm->keySize = keySize;
+    schema->numAttr = numAttr; 
+    schema->attrNames = attrNames;
+    schema->dataTypes = dataTypes;
+    schema->typeLength = typeLength;
+    schema->keyAttrs = keys; 
+    schema->keySize = keySize;
 
-	return schm;
+	return schema;
 }
 
 RC freeSchema (Schema *schema){
-	int ret = 0;
+	int ret = 0, i;
+
+    for (i=0; i<schema->numAttr; i++)
+        free(schema->attrNames[i]);
+    
+    free(schema);
 
 	return ret;
 }
