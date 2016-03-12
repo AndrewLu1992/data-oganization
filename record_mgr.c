@@ -6,13 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-BM_BufferPool *bm;
+BM_BufferPool *BM;
 
 // table and manager
 RC initRecordManager (void *mgmtData){
 	int ret = 0;
 
-    bm = MAKE_POOL();
+    BM = MAKE_POOL();
     
     ret = createPageFile("database.bin");
     if(ret != RC_OK) {
@@ -20,7 +20,7 @@ RC initRecordManager (void *mgmtData){
         return ret;
     }
 /*    
-    ret = initBufferPool(bm, "database.bin", 5, RS_LFU, NULL);
+    ret = initBufferPool(BM, "database.bin", 5, RS_LFU, NULL);
     if (ret != RC_OK) {
         printf("Init Buffer POOL Fail\n");
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
@@ -32,15 +32,46 @@ RC initRecordManager (void *mgmtData){
 RC shutdownRecordManager (){
 	int ret = 0;
 
-    ret = shutdownBufferPool(bm);
+    ret = shutdownBufferPool(BM);
     if(ret != 0) {
         printf("shutdown buffer pool fail\n");
         return ret;
     }
         
-    bm = NULL;
+    BM = NULL;
 
 	return ret;
+}
+
+RC initPageHeader(char *name, Schema *schema) {
+    int ret;
+    RM_PageHeader pageHeader;
+
+    printf("Enter %s\n", __func__);
+
+
+    BM_PageHandle *page = MAKE_PAGE_HANDLE();
+
+    ret = pinPage(BM, page, 0);
+    if (ret != RC_OK){
+        printf("%s pin page fail\n", __func__);
+        return ret;
+    }
+    
+    ret = markDirty(BM, page);
+    if (ret != RC_OK){
+        printf("%s Mark Dirty Page fail\n", __func__);
+        return ret;
+    }
+    
+    pageHeader.numRecorder = 0;
+
+    pageHeader.totalPages = 1;
+    pageHeader.totalRecorder = 0;
+    //pageHeader.recordersPerPage = (PAGE_SIZE - sizeof(recorderHeader))/sizeof(schema->);
+    pageHeader.schema = schema;
+
+    return ret;
 }
 
 RC createTable (char *name, Schema *schema) {
@@ -60,9 +91,15 @@ RC createTable (char *name, Schema *schema) {
         return RC_REC_TABLE_CREATE_FAILED;
     }
 
-    ret = initBufferPool(bm, name, 5, RS_LFU, NULL);
+    ret = initBufferPool(BM, name, 5, RS_LFU, NULL);
     if (ret != RC_OK) {
         printf("Init Buffer POOL Fail\n");
+        return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
+    }
+
+    ret = initPageHeader(name, schema);
+    if (ret != RC_OK) {
+        printf("Init Page Header Fail\n");
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
     }
 	return ret;
