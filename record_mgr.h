@@ -12,15 +12,6 @@ typedef struct RM_ScanHandle
   void *mgmtData;
 } RM_ScanHandle;
 
-typedef struct RM_PageHeader
-{
-    int numRecorder;
-    int totalPages;
-    int totalRecorder;
-    int recordersPerPage;
-    Schema *schema;
-} RM_PageHeader;
-
 // table and manager
 extern RC initRecordManager (void *mgmtData);
 extern RC shutdownRecordManager ();

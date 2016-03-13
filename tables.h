@@ -51,6 +51,19 @@ typedef struct RM_TableData
   void *mgmtData;
 } RM_TableData;
 
+// Table Header: Maintain the table page, recorder information
+typedef struct RM_TableHeader
+{
+    char tableName[30];
+    int numRecorders;
+    int totalPages;
+    int totalRecorder;
+    int recordersPerPage;
+    int numSchemaAttr;
+    int key;
+} RM_TableHeader;
+
+
 #define MAKE_STRING_VALUE(result, value)				\
   do {									\
     (result) = (Value *) malloc(sizeof(Value));				\

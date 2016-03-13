@@ -2,9 +2,11 @@
 #include "buffer_mgr_stat.h"
 #include "dberror.h"
 #include "buffer_mgr.h"
+#include "tables.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 BM_BufferPool *BM;
 
@@ -14,12 +16,12 @@ RC initRecordManager (void *mgmtData){
 
     BM = MAKE_POOL();
     
+/*    
     ret = createPageFile("database.bin");
     if(ret != RC_OK) {
         printf("Create Page Fail\n");
         return ret;
     }
-/*    
     ret = initBufferPool(BM, "database.bin", 5, RS_LFU, NULL);
     if (ret != RC_OK) {
         printf("Init Buffer POOL Fail\n");
@@ -43,33 +45,57 @@ RC shutdownRecordManager (){
 	return ret;
 }
 
-RC initPageHeader(char *name, Schema *schema) {
-    int ret;
-    RM_PageHeader pageHeader;
-
-    printf("Enter %s\n", __func__);
-
+RC initTableHeader(char *name, Schema *schema) {
+    int ret, HeaderPageNum = 0;
+    RM_TableHeader TableHeader;
+    unsigned int offset=0 , size = 0;
 
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
 
-    ret = pinPage(BM, page, 0);
+    ret = pinPage(BM, page, HeaderPageNum);
     if (ret != RC_OK){
         printf("%s pin page fail\n", __func__);
         return ret;
     }
+
+    //fullfile the pageHeader structure
+    memcpy(TableHeader.tableName, name, sizeof(*name));
+    TableHeader.numRecorders = 0;
+    TableHeader.totalPages = 1;
+    TableHeader.totalRecorder = 0;
+
+    //pageHeader.recordersPerPage = (PAGE_SIZE - sizeof(recorderHeader))/sizeof(schema->);
+    TableHeader.numSchemaAttr = schema->numAttr;
+    TableHeader.key = *(schema->keyAttrs);
+
+    // 1st phase copy the content of Tableheader to frame
+    memcpy(page->data, &TableHeader, sizeof(RM_TableHeader));
+   
+    // copy attr datatype to frame
+    offset = (unsigned int)sizeof(RM_TableHeader); 
+    size = schema->numAttr * sizeof(int);
+
+    memcpy((char *)page->data + offset, schema->dataTypes, size);
     
+    // copy attr size to frame
+    offset += size; 
+    size = schema->numAttr * sizeof(int);
+
+    memcpy((char *)page->data + offset, schema->typeLength, size);
+
+    //copy attr name to frame
+    offset += size; 
+    size = schema->numAttr * sizeof(char);
+    
+    memcpy((char *)page->data + offset, *(schema->attrNames), size);
+
     ret = markDirty(BM, page);
     if (ret != RC_OK){
         printf("%s Mark Dirty Page fail\n", __func__);
         return ret;
     }
-    
-    pageHeader.numRecorder = 0;
 
-    pageHeader.totalPages = 1;
-    pageHeader.totalRecorder = 0;
-    //pageHeader.recordersPerPage = (PAGE_SIZE - sizeof(recorderHeader))/sizeof(schema->);
-    pageHeader.schema = schema;
+    unpinPage(BM, page);
 
     return ret;
 }
@@ -81,32 +107,59 @@ RC createTable (char *name, Schema *schema) {
     
     if(schema == NULL) {
         printf("schema is NULL\n");
-        return RC_REC_TABLE_CREATE_FAILED;
+        return RC_REC_SCHEMA_NOT_FOUND;
     }
     
+    if(name == NULL) {
+        printf("File name is NULL\n");
+        return RC_REC_FILE_NOT_FOUND;
+    }
+   
+    //Create Page File 
     ret = createPageFile(name);
     
     if (ret != RC_OK) {
         printf("Create Table Page File %s Fail\n", name);
         return RC_REC_TABLE_CREATE_FAILED;
     }
-
-    ret = initBufferPool(BM, name, 5, RS_LFU, NULL);
+    
+    //Initialize Buffer Pool
+    ret = initBufferPool(BM, name, 3, RS_FIFO, NULL);
     if (ret != RC_OK) {
         printf("Init Buffer POOL Fail\n");
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
     }
-
-    ret = initPageHeader(name, schema);
+    
+    //Initialize the Block Header
+    ret = initTableHeader(name, schema);
     if (ret != RC_OK) {
         printf("Init Page Header Fail\n");
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
     }
+
+    ret = shutdownBufferPool(BM);
+    if (ret != RC_OK) {
+        printf("Shutdown Buffer Pool Fail\n");
+        return RC_BM_BP_SHUTDOWN_BUFFER_POOL_FAILED;
+    }
+
 	return ret;
 }
 
 RC openTable (RM_TableData *rel, char *name) {
 	int ret = 0;
+    
+    //Initialize Buffer Pool
+    ret = initBufferPool(BM, name, 3, RS_FIFO, NULL);
+    if (ret != RC_OK) {
+        printf("Init Buffer POOL Fail\n");
+        return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
+    }
+
+    BM->pageFile = name;
+    rel->name = name;
+    //rel->schema;
+    //rel->mgmtData;
 
 	return ret;
 }
