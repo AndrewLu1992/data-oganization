@@ -59,14 +59,20 @@ RC initTableHeader(char *name, Schema *schema) {
     }
 
     //fullfile the pageHeader structure
-    memcpy(TableHeader.tableName, name, sizeof(*name));
+    strcpy(TableHeader.tableName, name);
+    
+    printf("Table name is %c, name is %s\n", TableHeader.tableName[0], name );
     TableHeader.numRecorders = 0;
     TableHeader.totalPages = 1;
     TableHeader.totalRecorder = 0;
 
+    printf("%s, %d numRecorders is %d\n, total pages is %d\n, totalRecorder is %d\n", __func__,__LINE__, TableHeader.numRecorders, TableHeader.totalPages, TableHeader.totalRecorder);
+    TableHeader.recordersPerPage = 10;
     //pageHeader.recordersPerPage = (PAGE_SIZE - sizeof(recorderHeader))/sizeof(schema->);
     TableHeader.numSchemaAttr = schema->numAttr;
     TableHeader.key = *(schema->keyAttrs);
+
+printf("%s, %d, num Schema Attributes is %d, key is %d\n", __func__, __LINE__,schema->numAttr, TableHeader.key);
 
     // 1st phase copy the content of Tableheader to frame
     memcpy(page->data, &TableHeader, sizeof(RM_TableHeader));
@@ -76,18 +82,29 @@ RC initTableHeader(char *name, Schema *schema) {
     size = schema->numAttr * sizeof(int);
 
     memcpy((char *)page->data + offset, schema->dataTypes, size);
-    
+
+    int i;   
+    for (i=0; i < schema->numAttr; i++)
+        printf("dataType %d is %d\n", i, schema->dataTypes[i]);
+ 
     // copy attr size to frame
     offset += size; 
     size = schema->numAttr * sizeof(int);
 
     memcpy((char *)page->data + offset, schema->typeLength, size);
+    
+    int k = 0;
+    for (k=0; k < schema->numAttr; k++)
+        printf("TypeLength %d is %d\n", k, schema->typeLength[k]);
 
     //copy attr name to frame
     offset += size; 
     size = schema->numAttr * sizeof(char);
     
-    memcpy((char *)page->data + offset, *(schema->attrNames), size);
+    memcpy((char *)page->data + offset, (schema->attrNames), size);
+    
+    for (i=0; i < schema->numAttr; i++)
+        printf("attrName %d is %s\n", i, schema->attrNames[i]);
 
     ret = markDirty(BM, page);
     if (ret != RC_OK){
@@ -145,9 +162,38 @@ RC createTable (char *name, Schema *schema) {
 
 	return ret;
 }
+    
+RC parsePageHeader( char * page, Schema *schema) {
+    int ret = 0;
+    RM_TableHeader TableHeader;
+    
+    memcpy(&TableHeader, page, sizeof(RM_TableHeader));
+
+    printf("%s, %d table name is %s, numRecorders %d, totalpages is %d, totalRecorder is %d, recorderPerpage is %d, num attartributes %d, key is %d\n",
+                                                        __func__, __LINE__, 
+                                                        TableHeader.tableName, 
+                                                        TableHeader.numRecorders,
+                                                        TableHeader.totalPages,
+                                                        TableHeader.totalRecorder,
+                                                        TableHeader.recordersPerPage,
+                                                        TableHeader.numSchemaAttr,
+                                                        TableHeader.key
+                                                            );
+    
+    return ret;
+}
 
 RC openTable (RM_TableData *rel, char *name) {
-	int ret = 0;
+    Schema *schema;
+	int ret = 0, HeaderPageNum = 0;
+    BM_PageHandle *page = MAKE_PAGE_HANDLE();
+    
+
+    schema = malloc(sizeof(Schema));
+    if (schema == NULL) {
+        printf("malloc schema size fail\n");
+        return -1;
+    }
     
     //Initialize Buffer Pool
     ret = initBufferPool(BM, name, 3, RS_FIFO, NULL);
@@ -156,10 +202,17 @@ RC openTable (RM_TableData *rel, char *name) {
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
     }
 
+
+    ret = pinPage(BM, page, HeaderPageNum);
+
+    parsePageHeader(page->data, schema);
+
     BM->pageFile = name;
+
     rel->name = name;
-    //rel->schema;
-    //rel->mgmtData;
+    rel->schema = schema;
+
+    rel->mgmtData;
 
 	return ret;
 }
@@ -167,13 +220,17 @@ RC openTable (RM_TableData *rel, char *name) {
 RC closeTable (RM_TableData *rel){
 	int ret = 0;
 
+    
+
 	return ret;
 }
 
 RC deleteTable (char *name){
 	int ret = 0;
 
-	return ret;
+    //ret = DestroyPageFile(name);
+
+    return ret;
 }
 
 int getNumTuples (RM_TableData *rel) {
@@ -242,7 +299,7 @@ Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *t
         printf("malloc schema size fail\n");
         return NULL;
     }
-    
+ 
     schema->numAttr = numAttr; 
     schema->attrNames = attrNames;
     schema->dataTypes = dataTypes;
