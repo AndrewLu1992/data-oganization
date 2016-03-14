@@ -46,7 +46,7 @@ RC shutdownRecordManager (){
 }
 
 RC initTableHeader(char *name, Schema *schema) {
-    int ret, HeaderPageNum = 0;
+    int ret, HeaderPageNum = 0, i;
     RM_TableHeader TableHeader;
     unsigned int offset=0 , size = 0;
 
@@ -60,19 +60,14 @@ RC initTableHeader(char *name, Schema *schema) {
 
     //fullfile the pageHeader structure
     strcpy(TableHeader.tableName, name);
-    
-    printf("Table name is %c, name is %s\n", TableHeader.tableName[0], name );
     TableHeader.numRecorders = 0;
     TableHeader.totalPages = 1;
     TableHeader.totalRecorder = 0;
-
-    printf("%s, %d numRecorders is %d\n, total pages is %d\n, totalRecorder is %d\n", __func__,__LINE__, TableHeader.numRecorders, TableHeader.totalPages, TableHeader.totalRecorder);
     TableHeader.recordersPerPage = 10;
+
     //pageHeader.recordersPerPage = (PAGE_SIZE - sizeof(recorderHeader))/sizeof(schema->);
     TableHeader.numSchemaAttr = schema->numAttr;
     TableHeader.key = *(schema->keyAttrs);
-
-printf("%s, %d, num Schema Attributes is %d, key is %d\n", __func__, __LINE__,schema->numAttr, TableHeader.key);
 
     // 1st phase copy the content of Tableheader to frame
     memcpy(page->data, &TableHeader, sizeof(RM_TableHeader));
@@ -83,28 +78,18 @@ printf("%s, %d, num Schema Attributes is %d, key is %d\n", __func__, __LINE__,sc
 
     memcpy((char *)page->data + offset, schema->dataTypes, size);
 
-    int i;   
-    for (i=0; i < schema->numAttr; i++)
-        printf("dataType %d is %d\n", i, schema->dataTypes[i]);
- 
     // copy attr size to frame
     offset += size; 
     size = schema->numAttr * sizeof(int);
 
     memcpy((char *)page->data + offset, schema->typeLength, size);
     
-    int k = 0;
-    for (k=0; k < schema->numAttr; k++)
-        printf("TypeLength %d is %d\n", k, schema->typeLength[k]);
-
     //copy attr name to frame
-    offset += size; 
-    size = schema->numAttr * sizeof(char);
-    
-    memcpy((char *)page->data + offset, (schema->attrNames), size);
-    
-    for (i=0; i < schema->numAttr; i++)
-        printf("attrName %d is %s\n", i, schema->attrNames[i]);
+    for (i = 0; i < schema->numAttr; i ++) {    
+        offset += size; 
+        size = sizeof(char);
+        memcpy((char *)page->data + offset, *(schema->attrNames + i), size);
+    }
 
     ret = markDirty(BM, page);
     if (ret != RC_OK){
@@ -120,8 +105,6 @@ printf("%s, %d, num Schema Attributes is %d, key is %d\n", __func__, __LINE__,sc
 RC createTable (char *name, Schema *schema) {
 	int ret = 0;
 
-    printf("Enter %s\n", __func__);
-    
     if(schema == NULL) {
         printf("schema is NULL\n");
         return RC_REC_SCHEMA_NOT_FOUND;
@@ -165,10 +148,16 @@ RC createTable (char *name, Schema *schema) {
     
 RC parsePageHeader( char * page, Schema *schema) {
     int ret = 0;
+    unsigned int offset;
     RM_TableHeader TableHeader;
+    DataType *cpDt = (DataType *) malloc(sizeof(DataType) * 3);
+    int *cpSizes;
+    int *cpKeys;
+    char * attrNames;
     
     memcpy(&TableHeader, page, sizeof(RM_TableHeader));
 
+    // debug informaiton remove later
     printf("%s, %d table name is %s, numRecorders %d, totalpages is %d, totalRecorder is %d, recorderPerpage is %d, num attartributes %d, key is %d\n",
                                                         __func__, __LINE__, 
                                                         TableHeader.tableName, 
@@ -179,7 +168,35 @@ RC parsePageHeader( char * page, Schema *schema) {
                                                         TableHeader.numSchemaAttr,
                                                         TableHeader.key
                                                             );
+
+    cpDt = (DataType *) malloc(sizeof(DataType) * TableHeader.numSchemaAttr);
+    cpSizes = (int *) malloc(sizeof(int) * TableHeader.numSchemaAttr);
+    attrNames = (char *) malloc(sizeof(char) * TableHeader.numSchemaAttr);
+
+    // parse datatype
+    offset =  sizeof(RM_TableHeader);
+    memcpy(cpDt, page + offset, TableHeader.numSchemaAttr * sizeof(int));
+
+    //parse data type size
+    offset += TableHeader.numSchemaAttr * sizeof(int);
+    memcpy(cpSizes, page + offset, TableHeader.numSchemaAttr * sizeof(int)); 
+
+    offset += TableHeader.numSchemaAttr * sizeof(int);
+    strncpy(attrNames, page + offset, TableHeader.numSchemaAttr * sizeof(char));
     
+    //full fill schema structure    
+    schema->dataTypes = cpDt;
+    schema->attrNames = &attrNames;
+    schema->typeLength = cpSizes;
+
+    // debug information removed later 
+    int i;   
+    for (i = 0; i < TableHeader.numSchemaAttr; i++) {
+        printf("dataType %d is %d\n", i, cpDt[i]);
+        printf("attributes %d length is %d\n", i, cpSizes[i]);
+        printf("name %d is %c\n", i, attrNames[i]);
+    }
+
     return ret;
 }
 
