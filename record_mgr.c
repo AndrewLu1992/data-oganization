@@ -154,28 +154,20 @@ RC parsePageHeader( char * page, Schema *schema) {
     int *cpSizes;
     int *cpKeys;
     char * attrNames;
+    int * keyAttrs; 
     
     memcpy(&TableHeader, page, sizeof(RM_TableHeader));
-
-    // debug informaiton remove later
-    printf("%s, %d table name is %s, numRecorders %d, totalpages is %d, totalRecorder is %d, recorderPerpage is %d, num attartributes %d, key is %d\n",
-                                                        __func__, __LINE__, 
-                                                        TableHeader.tableName, 
-                                                        TableHeader.numRecorders,
-                                                        TableHeader.totalPages,
-                                                        TableHeader.totalRecorder,
-                                                        TableHeader.recordersPerPage,
-                                                        TableHeader.numSchemaAttr,
-                                                        TableHeader.key
-                                                            );
 
     cpDt = (DataType *) malloc(sizeof(DataType) * TableHeader.numSchemaAttr);
     cpSizes = (int *) malloc(sizeof(int) * TableHeader.numSchemaAttr);
     attrNames = (char *) malloc(sizeof(char) * TableHeader.numSchemaAttr);
+    keyAttrs = (int *) malloc(sizeof(int));
 
     // parse datatype
     offset =  sizeof(RM_TableHeader);
     memcpy(cpDt, page + offset, TableHeader.numSchemaAttr * sizeof(int));
+
+    memcpy(keyAttrs, &(TableHeader.key), sizeof(int));
 
     //parse data type size
     offset += TableHeader.numSchemaAttr * sizeof(int);
@@ -188,15 +180,9 @@ RC parsePageHeader( char * page, Schema *schema) {
     schema->dataTypes = cpDt;
     schema->attrNames = &attrNames;
     schema->typeLength = cpSizes;
-
-    // debug information removed later 
-    int i;   
-    for (i = 0; i < TableHeader.numSchemaAttr; i++) {
-        printf("dataType %d is %d\n", i, cpDt[i]);
-        printf("attributes %d length is %d\n", i, cpSizes[i]);
-        printf("name %d is %c\n", i, attrNames[i]);
-    }
-
+    schema->numAttr = TableHeader.numSchemaAttr;
+    schema->keyAttrs = keyAttrs;
+ 
     return ret;
 }
 
