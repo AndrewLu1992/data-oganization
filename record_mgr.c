@@ -150,7 +150,7 @@ RC parsePageHeader( char * page, Schema *schema) {
     int ret = 0;
     unsigned int offset;
     RM_TableHeader TableHeader;
-    DataType *cpDt = (DataType *) malloc(sizeof(DataType) * 3);
+    DataType *cpDt;
     int *cpSizes;
     int *cpKeys;
     char * attrNames;
@@ -324,11 +324,42 @@ RC freeSchema (Schema *schema){
 	return ret;
 }
 
+RC calculateRecordSize(Schema *schema) {
+    int recordSize, i;
+    
+    for (i = 0; i < schema->numAttr; i++) {
+        switch(schema->dataTypes[i]){
+            case DT_INT:
+                schema->typeLength[i] = sizeof(int);                
+                break;
+            case DT_FLOAT:
+                schema->typeLength[i] = sizeof(float);
+                break;
+            case DT_BOOL:
+                schema->typeLength[i] = sizeof(bool);
+                break;
+        }
+
+        recordSize += schema->typeLength[i];
+    }
+   return recordSize;
+}
+
 // dealing with records and attribute values
 RC createRecord (Record **record, Schema *schema) {
 	int ret = 0;
+    int RecordSize;
 
-	return ret;
+    *record = malloc(sizeof(Record));
+
+    //record->id.page = -1;
+    //record->id.slot = -1;
+
+    RecordSize = calculateRecordSize(schema);
+   
+    (*record)->data = (char *) calloc(RecordSize, sizeof(char)); 
+
+    return ret;
 }
 
 RC freeRecord (Record *record) {
