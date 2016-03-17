@@ -361,18 +361,68 @@ RC createRecord (Record **record, Schema *schema) {
 
 RC freeRecord (Record *record) {
 	int ret = 0;
+    
+    free(record->data);
+    free(record);
 
 	return ret;
 }
 
 RC getAttr (Record *record, Schema *schema, int attrNum, Value **value) {
-	int ret = 0;
+	int ret = 0, offset = 0, i;
+    Value *Val;
+
+    Val = (Value *) malloc(sizeof(Value));
+    
+    Val->dt = schema->dataTypes[attrNum];
+    
+    for (i = 0; i < attrNum; i++) {
+        offset += schema->typeLength[i];
+    }
+
+    switch(schema->dataTypes[attrNum]) {
+        case DT_STRING:
+            Val->v.stringV = (char *) malloc(schema->typeLength[attrNum] + 1);
+            memcpy(Val->v.stringV, record->data + offset,schema->typeLength[attrNum]);
+            Val->v.stringV[schema->typeLength[attrNum]] = '\0';
+            break;
+        case DT_INT:
+            memcpy(&(Val->v.intV), record->data + offset,schema->typeLength[attrNum]);
+            break;
+        case DT_FLOAT:
+            memcpy(&(Val->v.floatV), record->data + offset,schema->typeLength[attrNum]);
+            break;
+        case DT_BOOL:
+            memcpy(&(Val->v.boolV), record->data + offset,schema->typeLength[attrNum]);
+            break;
+    }
+
+    value = &Val;    
 
 	return ret;
 }
 
 RC setAttr (Record *record, Schema *schema, int attrNum, Value *value) {
-	int ret = 0;
+	int ret = 0,  offset = 0, i;
+
+    for (i = 0; i < attrNum; i++) {
+        offset += schema->typeLength[i];
+    }
+
+    switch(value->dt) {
+        case DT_STRING:
+            memcpy(record->data + offset, value->v.stringV,schema->typeLength[attrNum]);
+            break;
+        case DT_BOOL:
+            memcpy(record->data + offset, &(value->v.boolV),schema->typeLength[attrNum]);
+            break;
+        case DT_INT:
+            memcpy(record->data + offset, &(value->v.intV),schema->typeLength[attrNum]);
+            break;
+        case DT_FLOAT:
+            memcpy(record->data + offset, &(value->v.floatV),schema->typeLength[attrNum]);
+            break;
+    }
 
 	return ret;
 }
