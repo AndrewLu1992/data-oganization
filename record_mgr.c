@@ -352,9 +352,6 @@ RC createRecord (Record **record, Schema *schema) {
 
     *record = malloc(sizeof(Record));
 
-    //record->id.page = -1;
-    //record->id.slot = -1;
-
     RecordSize = calculateRecordSize(schema);
    
     (*record)->data = (char *) calloc(RecordSize, sizeof(char)); 
