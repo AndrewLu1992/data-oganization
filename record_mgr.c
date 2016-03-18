@@ -46,7 +46,7 @@ RC shutdownRecordManager (){
 }
 
 RC initTableHeader(char *name, Schema *schema) {
-    int ret, HeaderPageNum = 0, i;
+    int ret, HeaderPageNum = 0, i, RecordSize;
     RM_TableHeader TableHeader;
     unsigned int offset=0 , size = 0;
 
@@ -82,6 +82,7 @@ RC initTableHeader(char *name, Schema *schema) {
     offset += size; 
     size = schema->numAttr * sizeof(int);
 
+    RecordSize = getRecordSize(schema);
     memcpy((char *)page->data + offset, schema->typeLength, size);
     
     //copy attr name to frame
@@ -288,9 +289,24 @@ RC closeScan (RM_ScanHandle *scan) {
 
 // dealing with schemas
 int getRecordSize (Schema *schema) {
-	int ret = 0;
+    int recordSize, i;
+    
+    for (i = 0; i < schema->numAttr; i++) {
+        switch(schema->dataTypes[i]){
+            case DT_INT:
+                schema->typeLength[i] = sizeof(int);                
+                break;
+            case DT_FLOAT:
+                schema->typeLength[i] = sizeof(float);
+                break;
+            case DT_BOOL:
+                schema->typeLength[i] = sizeof(bool);
+                break;
+        }
 
-	return ret;
+        recordSize += schema->typeLength[i];
+    }
+   return recordSize;
 }
 
 Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *typeLength, int keySize, int *keys) {
@@ -324,26 +340,6 @@ RC freeSchema (Schema *schema){
 	return ret;
 }
 
-RC calculateRecordSize(Schema *schema) {
-    int recordSize, i;
-    
-    for (i = 0; i < schema->numAttr; i++) {
-        switch(schema->dataTypes[i]){
-            case DT_INT:
-                schema->typeLength[i] = sizeof(int);                
-                break;
-            case DT_FLOAT:
-                schema->typeLength[i] = sizeof(float);
-                break;
-            case DT_BOOL:
-                schema->typeLength[i] = sizeof(bool);
-                break;
-        }
-
-        recordSize += schema->typeLength[i];
-    }
-   return recordSize;
-}
 
 // dealing with records and attribute values
 RC createRecord (Record **record, Schema *schema) {
@@ -352,7 +348,7 @@ RC createRecord (Record **record, Schema *schema) {
 
     *record = malloc(sizeof(Record));
 
-    RecordSize = calculateRecordSize(schema);
+    RecordSize = getRecordSize(schema);
    
     (*record)->data = (char *) calloc(RecordSize, sizeof(char)); 
 
