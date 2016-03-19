@@ -69,11 +69,20 @@ enum type {
     Block_Cemetery = 2,
 }type;
 
+enum TableHeaderOperation {
+    PlusOnePageNum = 0,
+    ReduceOnePageNum,
+    PlusOneRecorder,
+    ReduceOneRecorder,
+    IncreasetotalRecorderWithOnePage,
+    DecreasetotalRecorderWithOnePage,
+}TableHeaderOperation;
+
 typedef struct RM_BlockHeader {
     int blockID;
-    int freeSlot;
+    int freeSlotPos;
     int type;
-    int totalRecords;
+    int RecordsCapacity;
     int numRecords;
 }RM_BlockHeader;
 

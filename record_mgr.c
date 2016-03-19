@@ -13,6 +13,50 @@
 
 BM_BufferPool *BM;
 
+int updateTableHeader(int operation) {
+    int ret = 0;
+    struct RM_TableHeader *TableHeader;
+    
+    BM_PageHandle *page = (BM_PageHandle *) malloc(sizeof(BM_PageHandle));
+
+    ret = pinPage(BM, page, TABLE_HEADER_PAGE);
+    if (ret != RC_OK){
+        printf("%s pin page fail\n", __func__);
+        return ret;
+    }
+   
+    TableHeader = (struct RM_TableHeader *)malloc(sizeof(RM_TableHeader));
+    
+    memcpy(TableHeader, page->data, sizeof(RM_TableHeader));
+
+    switch(operation) {
+        case PlusOnePageNum :
+            TableHeader->totalPages +=1;
+            break;
+        case ReduceOnePageNum :
+            TableHeader->totalPages -=1;            
+            break;
+        case PlusOneRecorder :
+            TableHeader->numRecorders +=1;
+            break;
+        case ReduceOneRecorder:
+            TableHeader->numRecorders -=1;
+            break;
+        case IncreasetotalRecorderWithOnePage:
+            TableHeader->totalRecorder += TableHeader->recordersPerPage;
+            break;
+        case DecreasetotalRecorderWithOnePage:
+            TableHeader->totalRecorder -= TableHeader->recordersPerPage;
+            break;
+    }
+    
+     
+    memcpy(page->data, TableHeader, sizeof(RM_TableHeader));
+
+    return ret;
+}
+
+
 // table and manager
 RC initRecordManager (void *mgmtData){
 	int ret = 0;
@@ -108,7 +152,7 @@ RC initTableHeader(char *name, Schema *schema) {
 
 RC CreateRecordPage(int PageNum, Schema * schema) {
     int ret = 0, RecordSize;
-    struct RM_BlockHeader;
+    struct RM_BlockHeader blockheader;
 
     BM_PageHandle *page = (BM_PageHandle *) malloc(sizeof(BM_PageHandle));
 
@@ -120,14 +164,27 @@ RC CreateRecordPage(int PageNum, Schema * schema) {
 
     RecordSize = getRecordSize(schema);
 
-    RM_BlockHeader.blockID = PageNum;
-    RM_BlockHeader.freeSlotPosition = 
-    RM_BlockHeader.type =
-    RM_BlockHeader.RecordsCapacity = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize;
-    RM_BlockHeader.numRecords = 0;
+    blockheader.blockID = PageNum;
+    //RM_BlockHeader.freeSlotPos = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize; 
+    blockheader.type = Block_EmpPage;
+    blockheader.RecordsCapacity = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize;
+    blockheader.numRecords = 0;
+   
+    memcpy((char *)page->data , &blockheader, sizeof(RM_BlockHeader));
+ 
+    ret = markDirty(BM, page);
+    if (ret != RC_OK){
+        printf("%s Mark Dirty Page fail\n", __func__);
+        return ret;
+    }
 
+    updateTableHeader(PlusOnePageNum);
 
+    unpinPage(BM, page);
+
+    return ret;
 }
+
 
 RC createTable (char *name, Schema *schema) {
 	int ret = 0;
@@ -165,7 +222,11 @@ RC createTable (char *name, Schema *schema) {
     }
 
     ret = CreateRecordPage(FIRST_RECORD_PAGE, schema);
-
+    if (ret != RC_OK) {
+        printf("Create Record Page Fail\n");
+        return RC_BM_BP_SHUTDOWN_BUFFER_POOL_FAILED;
+    }
+    
     ret = shutdownBufferPool(BM);
     if (ret != RC_OK) {
         printf("Shutdown Buffer Pool Fail\n");
