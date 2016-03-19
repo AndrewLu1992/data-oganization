@@ -197,7 +197,6 @@ RC openTable (RM_TableData *rel, char *name) {
     Schema *schema;
     struct RM_TableHeader *TableHeader;
 
-
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
 
     schema = malloc(sizeof(Schema));
@@ -245,17 +244,11 @@ RC deleteTable (char *name){
 
 int getNumTuples (RM_TableData *rel) {
 	int ret = 0;
-    BM_PageHandle *page = (BM_PageHandle *) malloc(sizeof(BM_PageHandle));
-
-    ret = pinPage(BM, page, TABLE_HEADER_PAGE);
-    if (ret != RC_OK) {
-        printf("%s, %d, pin page 0 fail\n", __func__,__LINE__);
-        return ret;
-    }
-
-
+    struct RM_TableHeader *TableHeader;
     
-	return ret;
+    TableHeader = rel->mgmtData;
+
+	return TableHeader->totalRecorder;
 }
 
 // handling records in a table
