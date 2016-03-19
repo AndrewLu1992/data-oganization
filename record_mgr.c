@@ -53,6 +53,14 @@ int updateTableHeader(int operation) {
      
     memcpy(page->data, TableHeader, sizeof(RM_TableHeader));
 
+    ret = markDirty(BM, page);
+    if (ret != RC_OK){
+        printf("%s Mark Dirty Page fail\n", __func__);
+        return ret;
+    }
+
+    unpinPage(BM, page);
+
     return ret;
 }
 
