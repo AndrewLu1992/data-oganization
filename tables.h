@@ -63,6 +63,20 @@ typedef struct RM_TableHeader
     int key;
 } RM_TableHeader;
 
+enum type {
+    Block_EmpPage = 0,
+    Block_Full = 1,
+    Block_Cemetery = 2,
+}type;
+
+
+typedef struct RM_BlockHeader {
+    int blockID;
+    int freeSlot;
+    int type;
+    int totalRecords;
+    int numRecords;
+}RM_BlockHeader;
 
 #define MAKE_STRING_VALUE(result, value)				\
   do {									\

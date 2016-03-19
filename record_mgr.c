@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define TABLE_HEADER_PAGE   0
+
 BM_BufferPool *BM;
 
 // table and manager
@@ -147,51 +149,56 @@ RC createTable (char *name, Schema *schema) {
 	return ret;
 }
     
-RC parsePageHeader( char * page, Schema *schema) {
+struct RM_TableHeader * parsePageHeader(char * page, Schema *schema) {
     int ret = 0;
+    int numAttr = 0;
+    int *cpSizes, *cpKeys,* keyAttrs; 
     unsigned int offset;
-    RM_TableHeader TableHeader;
+    struct RM_TableHeader * TableHeader;
     DataType *cpDt;
-    int *cpSizes;
-    int *cpKeys;
     char * attrNames;
-    int * keyAttrs; 
     
-    memcpy(&TableHeader, page, sizeof(RM_TableHeader));
+    TableHeader = (struct RM_TableHeader *)malloc(sizeof(RM_TableHeader));
 
-    cpDt = (DataType *) malloc(sizeof(DataType) * TableHeader.numSchemaAttr);
-    cpSizes = (int *) malloc(sizeof(int) * TableHeader.numSchemaAttr);
-    attrNames = (char *) malloc(sizeof(char) * TableHeader.numSchemaAttr);
+    memcpy(TableHeader, page, sizeof(RM_TableHeader));
+
+    cpDt = (DataType *) malloc(sizeof(DataType) * TableHeader->numSchemaAttr);
+    cpSizes = (int *) malloc(sizeof(int) * TableHeader->numSchemaAttr);
+    attrNames = (char *) malloc(sizeof(char) * TableHeader->numSchemaAttr);
     keyAttrs = (int *) malloc(sizeof(int));
+
+    numAttr = TableHeader->numSchemaAttr;
 
     // parse datatype
     offset =  sizeof(RM_TableHeader);
-    memcpy(cpDt, page + offset, TableHeader.numSchemaAttr * sizeof(int));
+    memcpy(cpDt, page + offset, numAttr * sizeof(int));
 
-    memcpy(keyAttrs, &(TableHeader.key), sizeof(int));
+    memcpy(keyAttrs, &(TableHeader->key), sizeof(int));
 
     //parse data type size
-    offset += TableHeader.numSchemaAttr * sizeof(int);
-    memcpy(cpSizes, page + offset, TableHeader.numSchemaAttr * sizeof(int)); 
+    offset += numAttr * sizeof(int);
+    memcpy(cpSizes, page + offset, numAttr * sizeof(int)); 
 
-    offset += TableHeader.numSchemaAttr * sizeof(int);
-    strncpy(attrNames, page + offset, TableHeader.numSchemaAttr * sizeof(char));
+    offset += numAttr * sizeof(int);
+    strncpy(attrNames, page + offset, numAttr * sizeof(char));
     
     //full fill schema structure    
     schema->dataTypes = cpDt;
     schema->attrNames = &attrNames;
     schema->typeLength = cpSizes;
-    schema->numAttr = TableHeader.numSchemaAttr;
+    schema->numAttr = numAttr;
     schema->keyAttrs = keyAttrs;
  
-    return ret;
+    return TableHeader;
 }
 
 RC openTable (RM_TableData *rel, char *name) {
+	int ret = 0;
     Schema *schema;
-	int ret = 0, HeaderPageNum = 0;
+    struct RM_TableHeader *TableHeader;
+
+
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
-    
 
     schema = malloc(sizeof(Schema));
     if (schema == NULL) {
@@ -207,16 +214,15 @@ RC openTable (RM_TableData *rel, char *name) {
     }
 
 
-    ret = pinPage(BM, page, HeaderPageNum);
+    ret = pinPage(BM, page, TABLE_HEADER_PAGE);
 
-    parsePageHeader(page->data, schema);
+    TableHeader = parsePageHeader(page->data, schema);
 
     BM->pageFile = name;
 
     rel->name = name;
     rel->schema = schema;
-
-    rel->mgmtData;
+    rel->mgmtData = TableHeader;
 
 	return ret;
 }
@@ -239,7 +245,16 @@ RC deleteTable (char *name){
 
 int getNumTuples (RM_TableData *rel) {
 	int ret = 0;
+    BM_PageHandle *page = (BM_PageHandle *) malloc(sizeof(BM_PageHandle));
 
+    ret = pinPage(BM, page, TABLE_HEADER_PAGE);
+    if (ret != RC_OK) {
+        printf("%s, %d, pin page 0 fail\n", __func__,__LINE__);
+        return ret;
+    }
+
+
+    
 	return ret;
 }
 
@@ -289,7 +304,7 @@ RC closeScan (RM_ScanHandle *scan) {
 
 // dealing with schemas
 int getRecordSize (Schema *schema) {
-    int recordSize, i;
+    int recordSize = 0, i;
     
     for (i = 0; i < schema->numAttr; i++) {
         switch(schema->dataTypes[i]){
