@@ -69,7 +69,6 @@ enum type {
     Block_Cemetery = 2,
 }type;
 
-
 typedef struct RM_BlockHeader {
     int blockID;
     int freeSlot;

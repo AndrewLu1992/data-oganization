@@ -9,6 +9,7 @@
 #include <string.h>
 
 #define TABLE_HEADER_PAGE   0
+#define FIRST_RECORD_PAGE 1
 
 BM_BufferPool *BM;
 
@@ -60,14 +61,14 @@ RC initTableHeader(char *name, Schema *schema) {
         return ret;
     }
 
+    RecordSize = getRecordSize(schema);
+
     //fullfile the pageHeader structure
     strcpy(TableHeader.tableName, name);
     TableHeader.numRecorders = 0;
     TableHeader.totalPages = 1;
     TableHeader.totalRecorder = 0;
-    TableHeader.recordersPerPage = 10;
-
-    //pageHeader.recordersPerPage = (PAGE_SIZE - sizeof(recorderHeader))/sizeof(schema->);
+    TableHeader.recordersPerPage = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize;
     TableHeader.numSchemaAttr = schema->numAttr;
     TableHeader.key = *(schema->keyAttrs);
 
@@ -105,6 +106,29 @@ RC initTableHeader(char *name, Schema *schema) {
     return ret;
 }
 
+RC CreateRecordPage(int PageNum, Schema * schema) {
+    int ret = 0, RecordSize;
+    struct RM_BlockHeader;
+
+    BM_PageHandle *page = (BM_PageHandle *) malloc(sizeof(BM_PageHandle));
+
+    ret = pinPage(BM, page, PageNum);
+    if (ret != RC_OK){
+        printf("%s pin page fail\n", __func__);
+        return ret;
+    }
+
+    RecordSize = getRecordSize(schema);
+
+    RM_BlockHeader.blockID = PageNum;
+    RM_BlockHeader.freeSlotPosition = 
+    RM_BlockHeader.type =
+    RM_BlockHeader.RecordsCapacity = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize;
+    RM_BlockHeader.numRecords = 0;
+
+
+}
+
 RC createTable (char *name, Schema *schema) {
 	int ret = 0;
 
@@ -139,6 +163,8 @@ RC createTable (char *name, Schema *schema) {
         printf("Init Page Header Fail\n");
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
     }
+
+    ret = CreateRecordPage(FIRST_RECORD_PAGE, schema);
 
     ret = shutdownBufferPool(BM);
     if (ret != RC_OK) {
@@ -247,6 +273,7 @@ int getNumTuples (RM_TableData *rel) {
     struct RM_TableHeader *TableHeader;
     
     TableHeader = rel->mgmtData;
+    printf("%s, %d Num Tuples are %d\n",__func__, __LINE__, TableHeader->totalRecorder);
 
 	return TableHeader->totalRecorder;
 }
@@ -347,7 +374,6 @@ RC freeSchema (Schema *schema){
 
 	return ret;
 }
-
 
 // dealing with records and attribute values
 RC createRecord (Record **record, Schema *schema) {
