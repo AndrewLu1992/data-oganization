@@ -42,11 +42,11 @@ int updateTableHeader(int operation) {
         case ReduceOneRecorder:
             TableHeader->numRecorders -=1;
             break;
-        case IncreasetotalRecorderWithOnePage:
-            TableHeader->totalRecorder += TableHeader->recordersPerPage;
+        case IncreasetotalslotWithOnePage:
+            TableHeader->totalslot += TableHeader->recordersPerPage;
             break;
-        case DecreasetotalRecorderWithOnePage:
-            TableHeader->totalRecorder -= TableHeader->recordersPerPage;
+        case DecreasetotalslotWithOnePage:
+            TableHeader->totalslot -= TableHeader->recordersPerPage;
             break;
     }
     
@@ -119,7 +119,7 @@ RC initTableHeader(char *name, Schema *schema) {
     strcpy(TableHeader.tableName, name);
     TableHeader.numRecorders = 0;
     TableHeader.totalPages = 1;
-    TableHeader.totalRecorder = 0;
+    TableHeader.totalslot = 0;
     TableHeader.recordersPerPage = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize;
     TableHeader.numSchemaAttr = schema->numAttr;
     TableHeader.key = *(schema->keyAttrs);
@@ -173,7 +173,7 @@ RC CreateRecordPage(int PageNum, Schema * schema) {
     RecordSize = getRecordSize(schema);
 
     blockheader.blockID = PageNum;
-    //RM_BlockHeader.freeSlotPos = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize; 
+    //RM_BlockHeader.freeSlot = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize; 
     blockheader.type = Block_EmpPage;
     blockheader.RecordsCapacity = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize;
     blockheader.numRecords = 0;
@@ -186,7 +186,7 @@ RC CreateRecordPage(int PageNum, Schema * schema) {
         return ret;
     }
 
-    updateTableHeader(PlusOnePageNum);
+    //updateTableHeader(PlusOnePageNum);
 
     unpinPage(BM, page);
 
@@ -228,13 +228,13 @@ RC createTable (char *name, Schema *schema) {
         printf("Init Page Header Fail\n");
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
     }
-
+/*
     ret = CreateRecordPage(FIRST_RECORD_PAGE, schema);
     if (ret != RC_OK) {
         printf("Create Record Page Fail\n");
         return RC_BM_BP_SHUTDOWN_BUFFER_POOL_FAILED;
     }
-    
+*/    
     ret = shutdownBufferPool(BM);
     if (ret != RC_OK) {
         printf("Shutdown Buffer Pool Fail\n");
@@ -342,14 +342,30 @@ int getNumTuples (RM_TableData *rel) {
     struct RM_TableHeader *TableHeader;
     
     TableHeader = rel->mgmtData;
-    printf("%s, %d Num Tuples are %d\n",__func__, __LINE__, TableHeader->totalRecorder);
+    printf("%s, %d Num Tuples are %d\n",__func__, __LINE__, TableHeader->numRecorders);
 
-	return TableHeader->totalRecorder;
+	return TableHeader->totalslot;
 }
 
 // handling records in a table
 RC insertRecord (RM_TableData *rel, Record *record) {
-	int ret = 0;
+	int ret = 0, avaliablePageNum = 0, newPageNum;
+    struct RM_TableHeader * tableHeader;
+    newPageNum = tableHeader->totalPages;
+   
+    
+    tableHeader = rel->mgmtData;
+
+    // No Free slot to insert record
+    if (tableHeader->numRecorders == tableHeader->totalslot) {
+        printf("%s Page %d is full, need to create a new page\n",__func__, tableHeader->totalPages-1);
+        ret = CreateRecordPage(newPageNum, rel->schema);
+        tableHeader->totalPages++; 
+    }
+        
+    avaliablePageNum = tableHeader->totalPages;
+
+
 
 	return ret;
 }

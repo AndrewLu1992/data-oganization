@@ -57,7 +57,7 @@ typedef struct RM_TableHeader
     char tableName[30];
     int numRecorders;
     int totalPages;
-    int totalRecorder;
+    int totalslot;
     int recordersPerPage;
     int numSchemaAttr;
     int key;
@@ -74,13 +74,13 @@ enum TableHeaderOperation {
     ReduceOnePageNum,
     PlusOneRecorder,
     ReduceOneRecorder,
-    IncreasetotalRecorderWithOnePage,
-    DecreasetotalRecorderWithOnePage,
+    IncreasetotalslotWithOnePage,
+    DecreasetotalslotWithOnePage,
 }TableHeaderOperation;
 
 typedef struct RM_BlockHeader {
     int blockID;
-    int freeSlotPos;
+    int freeSlot;
     int type;
     int RecordsCapacity;
     int numRecords;
