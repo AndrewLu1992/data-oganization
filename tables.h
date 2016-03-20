@@ -67,6 +67,7 @@ enum type {
     Block_EmpPage = 0,
     Block_Full = 1,
     Block_Cemetery = 2,
+    Block_Used = 3,
 }type;
 
 enum TableHeaderOperation {
