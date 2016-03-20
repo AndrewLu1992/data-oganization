@@ -171,13 +171,12 @@ RC CreateRecordPage(int PageNum, Schema * schema) {
     }
 
     RecordSize = getRecordSize(schema);
-
     blockheader.blockID = PageNum;
-    //RM_BlockHeader.freeSlot = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize; 
+    blockheader.freeSlot = 0; 
     blockheader.type = Block_EmpPage;
     blockheader.RecordsCapacity = (PAGE_SIZE - sizeof(RM_BlockHeader))/RecordSize;
     blockheader.numRecords = 0;
-   
+
     memcpy((char *)page->data , &blockheader, sizeof(RM_BlockHeader));
  
     ret = markDirty(BM, page);
@@ -187,7 +186,6 @@ RC CreateRecordPage(int PageNum, Schema * schema) {
     }
 
     //updateTableHeader(PlusOnePageNum);
-
     unpinPage(BM, page);
 
     return ret;
@@ -309,6 +307,10 @@ RC openTable (RM_TableData *rel, char *name) {
 
 
     ret = pinPage(BM, page, TABLE_HEADER_PAGE);
+    if (ret != RC_OK){
+        printf("%s pin page fail\n", __func__);
+        return ret;
+    }
 
     TableHeader = parsePageHeader(page->data, schema);
 
@@ -349,23 +351,54 @@ int getNumTuples (RM_TableData *rel) {
 
 // handling records in a table
 RC insertRecord (RM_TableData *rel, Record *record) {
-	int ret = 0, avaliablePageNum = 0, newPageNum;
+	int ret = 0, avaliablePageNum = 0, newPageNum, offset, RecordSize;
     struct RM_TableHeader * tableHeader;
-    newPageNum = tableHeader->totalPages;
-   
-    
-    tableHeader = rel->mgmtData;
+    struct RM_BlockHeader blockHeader;
 
+    BM_PageHandle *page = MAKE_PAGE_HANDLE();
+       
+    tableHeader = rel->mgmtData;
+    newPageNum = tableHeader->totalPages;
+    RecordSize = getRecordSize(rel->schema);
+
+    blockHeader.type = Block_Used;
     // No Free slot to insert record
     if (tableHeader->numRecorders == tableHeader->totalslot) {
-        printf("%s Page %d is full, need to create a new page\n",__func__, tableHeader->totalPages-1);
+        printf("%s Page %d is full or Table Header Page, need to create a new page\n",__func__, tableHeader->totalPages-1);
         ret = CreateRecordPage(newPageNum, rel->schema);
-        tableHeader->totalPages++; 
+        tableHeader->totalPages += 1;
+        tableHeader->totalslot += tableHeader->recordersPerPage;
     }
-        
-    avaliablePageNum = tableHeader->totalPages;
 
+    ret = pinPage(BM, page, tableHeader->totalPages - 1);
+    if (ret != RC_OK){
+        printf("%s pin page fail\n", __func__);
+        return ret;
+    }
 
+    //Get the last Page Header that used to insert recorder in it.
+    memcpy(&blockHeader, page->data, sizeof(RM_BlockHeader));
+    
+    offset = sizeof(RM_BlockHeader) + (blockHeader.freeSlot) * RecordSize; 
+    memcpy(page->data + offset, record->data, RecordSize); 
+    
+    blockHeader.freeSlot +=1;
+    blockHeader.numRecords +=1;
+    
+    if (blockHeader.numRecords == blockHeader.RecordsCapacity)
+        blockHeader.type = Block_Full;
+    else
+        blockHeader.type = Block_Used;
+
+    tableHeader->numRecorders += 1;
+
+    ret = markDirty(BM, page);
+    if (ret != RC_OK){
+        printf("%s Mark Dirty Page fail\n", __func__);
+        return ret;
+    }
+
+    unpinPage(BM, page);
 
 	return ret;
 }
