@@ -588,6 +588,11 @@ RC next (RM_ScanHandle *scan, Record *record) {
 RC closeScan (RM_ScanHandle *scan) {
 	int ret = 0;
 
+    RM_ScanCondition *scancondition = (RM_ScanCondition *) scan->mgmtData;
+
+    free(scancondition->id);
+    free(scancondition);
+
 	return ret;
 }
 
