@@ -530,7 +530,7 @@ RC getRecord (RM_TableData *rel, RID id, Record *record) {
         printf("Page ID[0-N] %d is illegal.Total have pages %d\n", id.page, tableHeader->totalPages);
         return RC_REC_PIN_PAGE_NON_EXIT;
     }
-
+    
     BM_PageHandle *page = (BM_PageHandle *)malloc(sizeof(BM_PageHandle));
 
     ret = pinPage(BM, page, id.page);    
