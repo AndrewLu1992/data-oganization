@@ -407,6 +407,9 @@ RC insertRecord (RM_TableData *rel, Record *record) {
     offset = sizeof(RM_BlockHeader) + (blockHeader.freeSlot) * RecordSize; 
     memcpy(page->data + offset, record->data, RecordSize); 
     
+    record->id.page = tableHeader->totalPages - 1;
+    record->id.slot = blockHeader.freeSlot;
+    
     blockHeader.freeSlot +=1;
     blockHeader.numRecords +=1;
     
@@ -429,7 +432,57 @@ RC insertRecord (RM_TableData *rel, Record *record) {
 }
 
 RC deleteRecord (RM_TableData *rel, RID id) {
-	int ret = 0;
+	int ret = 0, offset= 0;
+    char tomb;
+    struct RM_TableHeader * tableHeader;
+    struct RM_BlockHeader blockHeader;
+
+    tableHeader = rel->mgmtData;
+
+    if (id.page > tableHeader->totalPages-1) {
+        printf("Page ID[0-N] %d is illegal.Total have pages %d\n", id.page, tableHeader->totalPages);
+        return RC_REC_PIN_PAGE_NON_EXIT;
+    }
+
+    BM_PageHandle *page = (BM_PageHandle *)malloc(sizeof(BM_PageHandle));
+    
+    ret = pinPage(BM, page, id.page);    
+    if (ret != RC_OK){
+        printf("%s pin page fail\n", __func__);
+        return ret;
+    }
+
+    memcpy(&blockHeader, page->data, sizeof(RM_BlockHeader));
+
+    /*Debug*/
+    printf("%s, %d Block ID is %d,free Slot is %d, type is %d, RecordsCapacity is %d, numRecordes is %d",__func__,__LINE__, 
+                blockHeader.blockID, 
+                blockHeader.freeSlot,
+                blockHeader.type,
+                blockHeader.RecordsCapacity,
+                blockHeader.numRecords);
+        
+    if (id.slot > blockHeader.freeSlot) {
+        printf("Slot is illegal\n");
+        return RC_INVALID_SLOT_NUMBER;
+    }
+
+    blockHeader.numRecords -=1;
+    memcpy(page->data, &blockHeader, sizeof(RM_BlockHeader));
+
+    offset = sizeof(RM_BlockHeader) + id.slot * getRecordSize(rel->schema);
+    memcpy(page->data + offset, &tomb, getRecordSize(rel->schema));
+
+    tableHeader->numRecorders -=1;
+    tableHeader->totalslot -=1;
+
+    ret = markDirty(BM, page);
+    if (ret != RC_OK){
+        printf("%s Mark Dirty Page fail\n", __func__);
+        return ret;
+    }
+
+    unpinPage(BM, page);
 
 	return ret;
 }
