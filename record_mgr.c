@@ -566,16 +566,6 @@ RC getRecord (RM_TableData *rel, RID id, Record *record) {
 // scans
 RC startScan (RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
 	int ret = 0;
-    
-    RM_ScanCondition *scancondition = (RM_ScanCondition *) malloc(sizeof(RM_ScanCondition));
-
-    scancondition->id
-    scancondition->cond = cond;
-    scancondition->id->page =
-    scancondition->id->slot =
-    scancondition->rel = rel;
-    scancondition->mgmtData =
-    
 	return ret;
 }
 
@@ -587,12 +577,6 @@ RC next (RM_ScanHandle *scan, Record *record) {
 
 RC closeScan (RM_ScanHandle *scan) {
 	int ret = 0;
-
-    RM_ScanCondition *scancondition = (RM_ScanCondition *) scan->mgmtData;
-
-    free(scancondition->id);
-    free(scancondition);
-
 	return ret;
 }
 
