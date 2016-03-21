@@ -60,6 +60,7 @@ int updateTableHeader(int operation) {
     }
 
     unpinPage(BM, page);
+    free(page);
 
     return ret;
 }
@@ -154,6 +155,7 @@ RC initTableHeader(char *name, Schema *schema) {
     }
 
     unpinPage(BM, page);
+    free(page);
 
     return ret;
 }
@@ -187,6 +189,7 @@ RC CreateRecordPage(int PageNum, Schema * schema) {
 
     //updateTableHeader(PlusOnePageNum);
     unpinPage(BM, page);
+    free(page);
 
     return ret;
 }
@@ -320,6 +323,7 @@ RC openTable (RM_TableData *rel, char *name) {
     rel->schema = schema;
     rel->mgmtData = TableHeader;
 
+    free(page);
 	return ret;
 }
 
@@ -343,12 +347,12 @@ RC closeTable (RM_TableData *rel){
         return ret;
     }
 
-    unpinPage(BM, page);
-
 	shutdownBufferPool(BM);
     free(rel->schema);
     free(rel->mgmtData);
 
+    unpinPage(BM, page);
+    free(page);
     return ret;
 }
 
@@ -427,6 +431,7 @@ RC insertRecord (RM_TableData *rel, Record *record) {
     }
 
     unpinPage(BM, page);
+    free(page);
 
 	return ret;
 }
@@ -483,26 +488,94 @@ RC deleteRecord (RM_TableData *rel, RID id) {
     }
 
     unpinPage(BM, page);
+    free(page);
 
 	return ret;
 }
 
 RC updateRecord (RM_TableData *rel, Record *record) {
-	int ret = 0;
+	int ret = 0, offset;
+    
+    BM_PageHandle *page = (BM_PageHandle *)malloc(sizeof(BM_PageHandle));
 
+    ret = pinPage(BM, page, record->id.page);    
+    if (ret != RC_OK){
+        printf("%s pin page fail\n", __func__);
+        return ret;
+    }
+
+    offset = sizeof(RM_BlockHeader) + record->id.slot * getRecordSize(rel->schema);
+    memcpy(page->data + offset, record->data, getRecordSize(rel->schema));
+    
+    ret = markDirty(BM, page);
+    if (ret != RC_OK){
+        printf("%s Mark Dirty Page fail\n", __func__);
+        return ret;
+    }
+
+    unpinPage(BM, page);
+    free(page);
+    
 	return ret;
 }
 
 RC getRecord (RM_TableData *rel, RID id, Record *record) {
-	int ret = 0;
+	int ret = 0, offset;
+    struct RM_TableHeader * tableHeader;
+    struct RM_BlockHeader blockHeader;
+   
+    tableHeader = rel->mgmtData;
 
+    if (id.page > tableHeader->totalPages-1) {
+        printf("Page ID[0-N] %d is illegal.Total have pages %d\n", id.page, tableHeader->totalPages);
+        return RC_REC_PIN_PAGE_NON_EXIT;
+    }
+
+    BM_PageHandle *page = (BM_PageHandle *)malloc(sizeof(BM_PageHandle));
+
+    ret = pinPage(BM, page, id.page);    
+    if (ret != RC_OK){
+        printf("%s pin page fail\n", __func__);
+        return ret;
+    }
+    
+    memcpy(&blockHeader, page->data, sizeof(RM_BlockHeader));
+
+    /*Debug*/
+    printf("%s, %d Block ID is %d,free Slot is %d, type is %d, RecordsCapacity is %d, numRecordes is %d",__func__,__LINE__, 
+                blockHeader.blockID, 
+                blockHeader.freeSlot,
+                blockHeader.type,
+                blockHeader.RecordsCapacity,
+                blockHeader.numRecords);
+        
+    if (id.slot > blockHeader.freeSlot) {
+        printf("%s Slot num %dis illegal\n", __func__, id.slot);
+        return RC_INVALID_SLOT_NUMBER;
+    }
+
+    offset = sizeof(RM_BlockHeader) + record->id.slot * getRecordSize(rel->schema);
+    memcpy(record->data, page->data + offset, getRecordSize(rel->schema));
+
+    unpinPage(BM, page);
+    
+    free(page);
 	return ret;
 }
 
 // scans
 RC startScan (RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
 	int ret = 0;
+    
+    RM_ScanCondition *scancondition = (RM_ScanCondition *) malloc(sizeof(RM_ScanCondition));
 
+    scancondition->id
+    scancondition->cond = cond;
+    scancondition->id->page =
+    scancondition->id->slot =
+    scancondition->rel = rel;
+    scancondition->mgmtData =
+    
 	return ret;
 }
 
