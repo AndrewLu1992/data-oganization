@@ -321,7 +321,8 @@ RC openTable (RM_TableData *rel, char *name) {
 
     rel->name = name;
     rel->schema = schema;
-    rel->mgmtData = TableHeader;
+    rel->mgmtData = BM;
+    rel->TableHeader = TableHeader;
 
     free(page);
 	return ret;
@@ -339,7 +340,7 @@ RC closeTable (RM_TableData *rel){
         return ret;
     }
     // 1st phase copy the content of Tableheader to frame
-    memcpy(page->data, rel->mgmtData, sizeof(RM_TableHeader));
+    memcpy(page->data, rel->TableHeader, sizeof(RM_TableHeader));
     
     ret = markDirty(BM, page);
     if (ret != RC_OK){
@@ -349,7 +350,7 @@ RC closeTable (RM_TableData *rel){
 
 	shutdownBufferPool(BM);
     free(rel->schema);
-    free(rel->mgmtData);
+    free(rel->TableHeader);
 
     unpinPage(BM, page);
     free(page);
@@ -372,7 +373,7 @@ int getNumTuples (RM_TableData *rel) {
 	int ret = 0;
     struct RM_TableHeader *TableHeader;
     
-    TableHeader = rel->mgmtData;
+    TableHeader = rel->TableHeader;
     printf("%s, %d Num Tuples are %d\n",__func__, __LINE__, TableHeader->numRecorders);
 
 	return TableHeader->totalslot;
@@ -386,7 +387,7 @@ RC insertRecord (RM_TableData *rel, Record *record) {
 
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
        
-    tableHeader = rel->mgmtData;
+    tableHeader = rel->TableHeader;
     newPageNum = tableHeader->totalPages;
     RecordSize = getRecordSize(rel->schema);
 
@@ -442,7 +443,7 @@ RC deleteRecord (RM_TableData *rel, RID id) {
     struct RM_TableHeader * tableHeader;
     struct RM_BlockHeader blockHeader;
 
-    tableHeader = rel->mgmtData;
+    tableHeader = rel->TableHeader;
 
     if (id.page > tableHeader->totalPages-1) {
         printf("Page ID[0-N] %d is illegal.Total have pages %d\n", id.page, tableHeader->totalPages);
@@ -524,7 +525,7 @@ RC getRecord (RM_TableData *rel, RID id, Record *record) {
     struct RM_TableHeader * tableHeader;
     struct RM_BlockHeader blockHeader;
    
-    tableHeader = rel->mgmtData;
+    tableHeader = rel->TableHeader;
 
     if (id.page > tableHeader->totalPages-1) {
         printf("Page ID[0-N] %d is illegal.Total have pages %d\n", id.page, tableHeader->totalPages);

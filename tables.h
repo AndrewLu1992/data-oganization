@@ -49,6 +49,7 @@ typedef struct RM_TableData
   char *name;
   Schema *schema;
   void *mgmtData;
+  void *TableHeader;
 } RM_TableData;
 
 // Table Header: Maintain the table page, recorder information
