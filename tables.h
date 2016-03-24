@@ -3,6 +3,7 @@
 
 #include "dt.h"
 
+
 // Data Types, Records, and Schemas
 typedef enum DataType {
   DT_INT = 0,
@@ -31,6 +32,14 @@ typedef struct Record
   RID id;
   char *data;
 } Record;
+
+//BM_BufferPool *BM;
+typedef struct RM_ScanHelper{
+    struct Expr *conditon;
+    RID rid;
+    int stopSign;
+    int current;
+}RM_ScanHelper;
 
 // information of a table schema: its attributes, datatypes, 
 typedef struct Schema
