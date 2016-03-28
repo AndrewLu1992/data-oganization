@@ -69,6 +69,8 @@ int updateTableHeader(int operation) {
 RC initRecordManager (void *mgmtData){
 	int ret = 0;
 
+
+
 	return ret;
 }
 
