@@ -8,7 +8,6 @@ BM_PageFrame* findEmpPage(BM_PageFrame * FrameListHead) {
 
     while(curFrame != NULL) {
         if(curFrame->flags == Frame_EmpPage){
-            printf("%s, %d frame%d is Empty, select it\n", __func__,__LINE__, curFrame->PFN); 
             return curFrame;
         }
         else
@@ -35,6 +34,8 @@ BM_PageFrame* pinPosition(BM_PageFrame * FrameListHead) {
 }
 
 RC InsertAfterFrame(BM_BufferPool *const bm, struct BM_PageFrame *insertPos, struct BM_PageFrame *selectedFrame) {
+    int ret = 0;
+
     BM_PageFrame *Head = bm->mgmtData;
     BM_PageFrame *nextFrame;
     
@@ -48,6 +49,8 @@ RC InsertAfterFrame(BM_BufferPool *const bm, struct BM_PageFrame *insertPos, str
     else
         Head->prev = selectedFrame; 
     insertPos->next = selectedFrame;
+
+    return ret;
 }
 
 RC maintainLFUFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFrame) {
@@ -95,7 +98,7 @@ RC maintainLFUFrameList(BM_BufferPool *const bm, struct BM_PageFrame *selectedFr
                 break;
         }
     }
-    InsertAfterFrame(bm, insertPos, selectedFrame);
+    ret = InsertAfterFrame(bm, insertPos, selectedFrame);
 
     curFrame = bm->mgmtData;
     return ret;

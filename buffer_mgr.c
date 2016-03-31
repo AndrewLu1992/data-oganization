@@ -175,7 +175,6 @@ RC checkCachedPage(BM_BufferPool *const bm, BM_PageHandle *const page, const Pag
             continue;
         }
         else if(pageNum == curFrame->pageHandle.pageNum) {  //Page matched
-            printf("%s, %d page%d is in memory\n", __func__,__LINE__,pageNum);
             page->pageNum = pageNum;
             curFrame->fixCount += 1; 
             page->data = curFrame->pageHandle.data;
@@ -184,7 +183,6 @@ RC checkCachedPage(BM_BufferPool *const bm, BM_PageHandle *const page, const Pag
                 maintainSortedFrameList(bm, curFrame);
             if(bm->strategy == RS_LFU) {
                 curFrame->freq +=1;
-                printf("%s, %d LFU Freq increase by one now is %d\n", __func__,__LINE__, curFrame->freq);
                 maintainLFUFrameList(bm, curFrame);                
             }
             return RC_OK;

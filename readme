@@ -1,0 +1,216 @@
+Assignment2
+	 Buffer Manager: Implement a buffer manager that manages a buffer of blocks in memory including reading/flushing to disk and block replacement (flushing blocks to disk to make space for reading new blocks from disk)
+
+Personnel information: 
+	Ting Ma  <tma11@hawk.iit.edu>
+	Shuo Yan<syan9@hawk.iit.edu >
+	Congwei She<cshe@hawk.iit.edu >
+	Chen Wang<Cwang90@hawk.iit.edu >
+
+File list:
+	buffer_mgr_sts.c
+	buffer_mgr_sts.h
+	buffer_mgr.c
+	buffer_mgr.h
+	dberror.c
+	dberror.h
+	dt.h
+	storage_mgr.c
+	storage_mgr.h
+	test_assign2_1_modified.c
+	test_helper.h
+	readme.txt
+	makefile
+
+Milestone:
+	2/12 meeting and talk about how to fullfil it
+	2/13 beginning codeing
+	2/24 personal test and debug
+	2/27 merge
+	2/29 make readme.txt and add header
+
+Installation instruction:
+	1. make test_assign3_1_modify
+	2. make test_assign3_1
+	3. ./test_assign3_1_modify
+		xxxxxx
+	4. ./test_assign3_1
+		xxxxxx
+	4.  make clean
+		rm *.o test_assign3_1_modify test_assign3_1
+
+		
+Function description:
+/**************************************************************************
+ • function name 
+    Frame * search_page(FrameList *list, const PageNumber pageNum)
+ 
+ • description
+    search pageNum in frame list, if page is found in the frame list, return 
+    the number of frame, if not found, return -1
+ 
+ • parameters
+    FrameList *list, const PageNumber pageNum
+ 
+ • return value
+    return null
+ 
+ • author
+    chen wang
+ 
+ • history
+    date                name                content
+    2-13                chen wang           write the function
+    2-29                congwei she         add function header
+ ***************************************************************************/
+	
+
+/**************************************************************************
+ • function name
+ update_lfu_list_head(FrameList *list, Frame *frame)
+ 
+ • description
+ update frame list head, this could be used in LFU
+ 
+ • parameters
+ FrameList *list, Frame *frame
+ 
+ • return value
+ no trturn
+ 
+ • author
+ shuo yan
+ 
+ • history
+ date                name                content
+ 2-27                shuo yan            write the function
+ 2-28		         ting ma		     write the function
+ 2-29                congwei she         add function header
+ ***************************************************************************/
+	
+
+/**************************************************************************
+ • function name
+ update_lfu_list_head(FrameList *list, Frame *frame)
+ 
+ • description
+ update frame list head, this could be used in FIFO, LRU, CLOCK
+ 
+ • parameters
+ FrameList *list, Frame *frame
+ 
+ • return value
+ no return
+ 
+ • author
+ chen wang
+ 
+ • history
+ date                name                content
+ 2-13                chen wang           write the function
+ 2-29                congwei she         add function header
+ ***************************************************************************/
+	
+
+/**************************************************************************
+ • function name
+ isPoolFull(BM_BufferPool *pool)
+ 
+ • description
+ check if the pool is full
+ 
+ • parameters
+ BM_BufferPool *pool
+ 
+ • return value
+ return bool
+ 
+ • author
+ chen wang
+ 
+ • history
+ date                name                content
+ 2-13                chen wang           write the function
+ 2-29                congwei she         add function header
+ ***************************************************************************/
+
+
+ /**************************************************************************
+ • function name
+ Frame * create_frame(int frameNum_1)
+ 
+ • description
+ create a frame of buffer pool
+ 
+ • parameters
+ int frameNum_1
+ 
+ • return value
+ return Frame *
+ 
+ • author
+ chen wang
+ 
+ • history
+ date                name                content
+ 2-13                chen wang           write the function
+ 2-29                congwei she         add function header
+ ***************************************************************************/
+	
+Additional error codes:
+	#define RC_STRATEGY_INVALID 400
+	#define RC_NUMPAGE_INVALID 401
+	#define RC_FLUSH_FAIL_PAGE_ISDIRTY 402
+	#define RC_Page_NON_EXIST 403
+	#define RC_CANNOT_UNPIN_FIXCOUNT_0 404
+	#define RC_CANNOT_REPLACE_PAGE_FIXCOUNT_NON_ZERO 405
+	#define RC_CANNOT_UNPIN_USING_CLOCK 406
+
+Data structure:
+
+typedef struct Frame {
+
+    struct Frame *previous;
+    struct Frame *next;
+    int pageNum;    //the page number
+    int frameNum;   //the frame number
+    int fixCount;
+    bool isDirty;
+    int clockNum;   //the reference number used in the clock replacement algorithm
+    int pageFreq;   //page frequence
+    BM_PageHandle *data ;  //file pointer, page handler  
+
+} Frame;
+
+typedef struct FrameList {
+
+    Frame *head;
+    Frame *tail;
+    Frame *clock_pointer;
+    
+}FrameList;
+
+typedef struct BufferPool {
+    
+    int numFrame;   //the number of frames, frame limit
+    int readNum;    //can be used in getNumReadIO, when pin, this num++, unpin, no change, flush, turn to 0
+    int writeNum;   //can be used in getNumWriteIO
+    int frameCount;  // frame counter, the number of frames which has page
+    FrameList *list;
+    void *k_value;  
+    
+}BufferPool;
+
+Extra credit:
+	fufil the clock algorithm and test it.
+
+Additional files:
+	storage_mgr.c
+	storage_mgr.h
+	test_assign2_1_modified.c
+
+Test cases:
+	we add the test cases for CLOCK() and LRU
+
+Note:
+	We change the code in order to match the original expected data, but we add our test data for CLOCK and LFU algorithm, so we change the file to test_assign2_1_modified. 
