@@ -80,15 +80,6 @@ enum type {
     Block_Used = 3,
 }type;
 
-enum TableHeaderOperation {
-    PlusOnePageNum = 0,
-    ReduceOnePageNum,
-    PlusOneRecorder,
-    ReduceOneRecorder,
-    IncreasetotalslotWithOnePage,
-    DecreasetotalslotWithOnePage,
-}TableHeaderOperation;
-
 typedef struct RM_BlockHeader {
     int blockID;
     int freeSlot;

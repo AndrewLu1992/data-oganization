@@ -1,7 +1,13 @@
-OBJS=dberror.o storage_mgr.o test_assign3_1.o buffer_mgr.o buffer_mgr_stat.o buffer_mgr_algorithm.o expr.o record_mgr.o rm_serializer.o
+OBJS=dberror.o storage_mgr.o buffer_mgr.o buffer_mgr_stat.o buffer_mgr_algorithm.o expr.o record_mgr.o rm_serializer.o
 
-all: $(OBJS)
-	cc -o test_assign3_1 $(OBJS)
+all: test_assign3_1 test_assign3_1_modify
+
+
+test_assign3_1_modify: $(OBJS) test_assign3_1_modify.o
+	cc -o $@ $^
+
+test_assign3_1: $(OBJS) test_assign3_1.o
+	cc -o $@ $^
 
 dberror.o: dberror.c dberror.h
 	cc -c dberror.c
@@ -11,6 +17,9 @@ storage_mgr.o: storage_mgr.c storage_mgr.h dberror.h
 
 test_assign3_1.o: test_assign3_1.c test_helper.h storage_mgr.h dberror.h
 	cc -c test_assign3_1.c rm_serializer.c
+
+test_assign3_1_modify.o: test_assign3_1_modify.c test_helper.h storage_mgr.h dberror.h
+	cc -c test_assign3_1_modify.c rm_serializer.c
 
 rm_serializer.o: rm_serializer.c tables.h
 	cc -c rm_serializer.c
@@ -32,4 +41,4 @@ record_mgr.o: record_mgr.c record_mgr.h
 
 .PHONY: clean
 clean:
-	-rm *.o test_assign3_1  
+	-rm *.o test_assign3_1  test_assign3_1_modify

@@ -11,65 +11,9 @@
 #define TABLE_HEADER_PAGE   0
 #define FIRST_RECORD_PAGE 1
 
-/*
-int updateTableHeader(int operation) {
-    int ret = 0;
-    struct RM_TableHeader *TableHeader;
-    
-    BM_PageHandle *page = (BM_PageHandle *) malloc(sizeof(BM_PageHandle));
-
-    ret = pinPage(BM, page, TABLE_HEADER_PAGE);
-    if (ret != RC_OK){
-        printf("%s pin page fail\n", __func__);
-        return ret;
-    }
-   
-    TableHeader = (struct RM_TableHeader *)malloc(sizeof(RM_TableHeader));
-    
-    memcpy(TableHeader, page->data, sizeof(RM_TableHeader));
-
-    switch(operation) {
-        case PlusOnePageNum :
-            TableHeader->totalPages +=1;
-            break;
-        case ReduceOnePageNum :
-            TableHeader->totalPages -=1;            
-            break;
-        case PlusOneRecorder :
-            TableHeader->numRecorders +=1;
-            break;
-        case ReduceOneRecorder:
-            TableHeader->numRecorders -=1;
-            break;
-        case IncreasetotalslotWithOnePage:
-            TableHeader->totalslot += TableHeader->recordersPerPage;
-            break;
-        case DecreasetotalslotWithOnePage:
-            TableHeader->totalslot -= TableHeader->recordersPerPage;
-            break;
-    }
-    
-     
-    memcpy(page->data, TableHeader, sizeof(RM_TableHeader));
-
-    ret = markDirty(BM, page);
-    if (ret != RC_OK){
-        printf("%s Mark Dirty Page fail\n", __func__);
-        return ret;
-    }
-
-    unpinPage(BM, page);
-    free(page);
-
-    return ret;
-}
-*/
-
 // table and manager
 RC initRecordManager (void *mgmtData){
 	int ret = 0;
-
-
 
 	return ret;
 }
@@ -87,7 +31,6 @@ RC initTableHeader(char *name, Schema *schema, BM_BufferPool *bm) {
 
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
 
-    printf("%s, %d\n", __func__,__LINE__);
     ret = pinPage(bm, page, HeaderPageNum);
     if (ret != RC_OK){
         printf("%s pin page fail\n", __func__);
@@ -146,7 +89,6 @@ RC CreateRecordPage(int PageNum, RM_TableData *rel) {
 
     BM_PageHandle *page = (BM_PageHandle *) malloc(sizeof(BM_PageHandle));
 
-    printf("%s, %d\n", __func__,__LINE__);
     ret = pinPage(rel->mgmtData, page, PageNum);
     if (ret != RC_OK){
         printf("%s pin page fail\n", __func__);
@@ -185,7 +127,6 @@ RC CreateRecordPage(int PageNum, RM_TableData *rel) {
 RC createTable (char *name, Schema *schema) {
 	int ret = 0;
 
-    printf("%s, %d\n", __func__,__LINE__);
     if(schema == NULL) {
         printf("schema is NULL\n");
         return RC_REC_SCHEMA_NOT_FOUND;
@@ -219,13 +160,7 @@ RC createTable (char *name, Schema *schema) {
         printf("Init Page Header Fail\n");
         return RC_BM_BP_INIT_BUFFER_POOL_FAILED;
     }
-/*
-    ret = CreateRecordPage(FIRST_RECORD_PAGE, schema);
-    if (ret != RC_OK) {
-        printf("Create Record Page Fail\n");
-        return RC_BM_BP_SHUTDOWN_BUFFER_POOL_FAILED;
-    }
-*/    
+
     ret = shutdownBufferPool(bm);
     if (ret != RC_OK) {
         printf("Shutdown Buffer Pool Fail\n");
@@ -244,7 +179,6 @@ struct RM_TableHeader * parsePageHeader(char * page, Schema *schema) {
     DataType *cpDt;
     char * attrNames;
     
-    printf("%s, %d\n", __func__,__LINE__);
     TableHeader = (struct RM_TableHeader *)malloc(sizeof(RM_TableHeader));
 
     memcpy(TableHeader, page, sizeof(RM_TableHeader));
@@ -284,7 +218,6 @@ RC openTable (RM_TableData *rel, char *name) {
     Schema *schema;
     struct RM_TableHeader *TableHeader;
 
-    printf("%s, %d\n", __func__,__LINE__);
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
     BM_BufferPool *bm = MAKE_POOL();
 
@@ -325,7 +258,6 @@ RC closeTable (RM_TableData *rel){
     int ret = 0;
     BM_BufferPool *bm;
 
-    printf("%s, %d\n", __func__,__LINE__);
     bm = rel->mgmtData;
 
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
@@ -363,7 +295,6 @@ RC closeTable (RM_TableData *rel){
 RC deleteTable (char *name){
     int ret = 0;
 
-    printf("%s, %d\n", __func__,__LINE__);
     ret = destroyPageFile(name);
     if(ret != RC_OK) {
         printf("Detele Table Fail\n");
@@ -378,7 +309,6 @@ int getNumTuples (RM_TableData *rel) {
     struct RM_TableHeader *TableHeader;
     
     TableHeader = rel->TableHeader;
-    printf("%s, %d Num Tuples are %d\n",__func__, __LINE__, TableHeader->numRecorders);
 
     return TableHeader->totalslot;
 }
@@ -390,7 +320,6 @@ RC insertRecord (RM_TableData *rel, Record *record) {
     struct RM_BlockHeader blockHeader;
     BM_BufferPool *bm;
 
-    printf("%s, %d\n", __func__,__LINE__);
     bm = rel->mgmtData;
 
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
@@ -403,7 +332,6 @@ RC insertRecord (RM_TableData *rel, Record *record) {
     
     // No Free slot to insert record
     if (tableHeader->numRecorders == tableHeader->totalslot) {
-        printf("%s Page %d is full or Table Header Page, need to create a new page\n",__func__, tableHeader->totalPages-1);
         ret = CreateRecordPage(newPageNum, rel);
         tableHeader->totalPages += 1;
         tableHeader->totalslot += tableHeader->recordersPerPage;
@@ -423,7 +351,6 @@ RC insertRecord (RM_TableData *rel, Record *record) {
     
     record->id.page = tableHeader->totalPages - 1;
     record->id.slot = blockHeader.freeSlot;
-    printf("[%s, %d] page is %d slot id is %d\n", __func__,__LINE__,record->id.page, record->id.slot);
     
     blockHeader.freeSlot +=1;
     blockHeader.numRecords +=1;
@@ -461,12 +388,7 @@ RC deleteRecord (RM_TableData *rel, RID id) {
     struct RM_TableHeader *tableHeader;
     struct RM_BlockHeader blockHeader;
 
-    printf("%s,%d\n", __func__,__LINE__);
-
     tableHeader = rel->TableHeader;
-
-    printf("%s, %d delete page is %d, slot is %d \n", __func__,__LINE__, id.page,id.slot);
-    printf("Page ID[0-N] %d.Total have pages %d\n", id.page, tableHeader->totalPages);
 
     if (id.page > tableHeader->totalPages-1) {
         printf("Page ID[0-N] %d is illegal.Total have pages %d\n", id.page, tableHeader->totalPages);
@@ -482,14 +404,6 @@ RC deleteRecord (RM_TableData *rel, RID id) {
     }
 
     memcpy(&blockHeader, page->data, sizeof(RM_BlockHeader));
-
-    /*Debug*/
-    printf("%s, %d Block ID is %d,free Slot is %d, type is %d, RecordsCapacity is %d, numRecordes is %d",__func__,__LINE__, 
-                blockHeader.blockID, 
-                blockHeader.freeSlot,
-                blockHeader.type,
-                blockHeader.RecordsCapacity,
-                blockHeader.numRecords);
 
     if (id.slot > blockHeader.freeSlot) {
         printf("Slot is illegal\n");
@@ -528,7 +442,6 @@ RC updateRecord (RM_TableData *rel, Record *record) {
     
     BM_PageHandle *page = (BM_PageHandle *)malloc(sizeof(BM_PageHandle));
 
-    printf("%s, %d, update page is %d, slot is %d\n", __func__,__LINE__, record->id.page, record->id.slot);
     ret = pinPage(rel->mgmtData, page, record->id.page);
     if (ret != RC_OK){
         printf("%s pin page fail\n", __func__);
@@ -568,7 +481,6 @@ RC getRecord (RM_TableData *rel, RID id, Record *record) {
     tomb = (char *)malloc(recordsize);
     memset(tomb, '#', recordsize);
 
-    printf("%s, %d\n", __func__,__LINE__);
     if (id.page > tableHeader->totalPages-1) {
         printf("Page ID[0-N] %d is illegal.Total have pages %d\n", id.page, tableHeader->totalPages);
         return RC_REC_PIN_PAGE_NON_EXIT;
@@ -585,39 +497,20 @@ RC getRecord (RM_TableData *rel, RID id, Record *record) {
     
     memcpy(&blockHeader, page->data, sizeof(RM_BlockHeader));
     
-    printf("%s request page is %d, request slot is %d\n", __func__,id.page,id.slot);
-    /*Debug*/
-    printf("%s, %d Block ID is %d,free Slot is %d, type is %d, RecordsCapacity is %d, numRecordes is %d\n",__func__,__LINE__, 
-                blockHeader.blockID, 
-                blockHeader.freeSlot,
-                blockHeader.type,
-                blockHeader.RecordsCapacity,
-                blockHeader.numRecords);
-    
     if (id.slot > blockHeader.freeSlot) {
         printf("%s lot num %dis illegal\n", __func__, id.slot);
         return RC_INVALID_SLOT_NUMBER;
     }
 
     offset = sizeof(RM_BlockHeader) + id.slot * recordsize;
-    
-    printf("slot is %d, recordsize is %d, offset is %d\n", record->id.slot, recordsize, offset);   
 
     memcpy(record->data, page->data + offset, recordsize);
-    
-    int a, b;
-    char str[4];
 
-    memcpy(&a, record->data, 4);
-    memcpy(str, record->data+4, 4);
-    memcpy(&b, record->data+8, 4);
-    printf("%s, %d attr0 is %d, attr1 is %s  attr2 is %d\n", __func__,__LINE__, a,str,b);
-
-    if (0 == strcmp(record->data, tomb)) {
+    if (0 == strncmp(record->data, tomb, recordsize)) {
         printf("%s, %d page %d slot %d is stome\n",__func__,__LINE__, id.page, id.slot);
-        return RC_RECORD_REMOVED;
+        ret =  RC_RECORD_REMOVED;
     }
-        
+
     unpinPage(rel->mgmtData, page);
     
     free(page);
@@ -629,7 +522,6 @@ RC startScan (RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
     int ret = 0;
     RM_ScanHelper * helper;
     
-    printf("%s, %d\n", __func__,__LINE__);
     helper= (RM_ScanHelper *)malloc(sizeof(RM_ScanHelper));
 
     helper->conditon = cond;
@@ -650,7 +542,6 @@ RC next (RM_ScanHandle *scan, Record *record) {
     RM_TableData *table;
     RM_ScanHelper *helper;
     
-    printf("%s, %d\n", __func__,__LINE__);
     RID *id = malloc(sizeof(RID));
     
     table = scan->rel;
@@ -658,7 +549,7 @@ RC next (RM_ScanHandle *scan, Record *record) {
     
     page_curr = helper->rid.page;
     slot = helper->rid.slot;
-    curr = helper->current;
+    curr = helper->current =slot;
     total = helper->stopSign;
 
     BM_BufferPool *bm = (BM_BufferPool *)table->mgmtData;
@@ -675,53 +566,55 @@ RC next (RM_ScanHandle *scan, Record *record) {
     if(slot >blockHeader.freeSlot) {
         slot = 0;
         page_curr = page_curr+1;
+        if(page_curr>((RM_TableHeader *)table->TableHeader)->totalPages-1) {
+            return RC_RM_NO_MORE_TUPLES;
+        }
+        unpinPage(bm, page);
+        pinPage(bm, page, page_curr);
     }
-    unpinPage(bm, page);
     id->page = page_curr;
     id->slot = slot;
     
     if(curr == total) {
-        return RC_RM_NO_MORE_TUPLES;
+        return RC_RM_NO_MORE_TUPLES;  //RC_RM_NO_MORE_TUPLES
     }
-    Record *r = malloc(sizeof(Record));
-    Value *v = malloc(sizeof(Value));
     
-    getRecord(table, *id, r);
-    if(evalExpr(r, table->schema, helper->conditon, &v)) {
-        record->id = r->id;
-        record->data = r->data;
+    Record *result;
+    ret=createRecord(&result, table->schema);
+    Value *v = malloc(sizeof(Value));
+    ret = getRecord(table, *id, result);
+
+    
+    unpinPage(bm, page);
+    //free(page);
+    if (ret == RC_RECORD_REMOVED) {
         helper->rid.slot++;
         curr++;
         return next(scan,record);
     } else {
-        helper->rid.slot++;
-        curr++;
-        return next(scan,record);
+        evalExpr(result, table->schema, helper->conditon, &v);
+        if(v->v.boolV==1) {
+            record->id = result->id;
+            record->data = result->data;
+            helper->rid.slot++;
+            curr++;
+            //return next(scan,record);
+            return RC_OK;
+        } else {
+            helper->rid.slot++;
+            curr++;
+            return next(scan,record);
+        }
     }
     
-    return RC_OK;
+    return ret;
 }
 
 RC closeScan (RM_ScanHandle *scan) {
-	int ret = 0;
-    RM_TableData *table;
-    table = scan->rel;
-    RM_ScanHelper *helper;
-    helper = scan->mgmtData;
-    
-    printf("%s, %d\n", __func__,__LINE__);
-    Expr *e;
-    e = helper->conditon;
-    
-    RID *id;
-    
-    free(id);
-    free(e);
-    free(helper);
-    free(table);
-    free(scan);
-
-	return ret;
+    int ret = 0;
+    scan->mgmtData = NULL;
+    scan->rel = NULL;
+    return ret;
 }
 
 // dealing with schemas
@@ -750,7 +643,6 @@ Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *t
     int ret = 0;
     Schema *schema;
 
-    printf("%s, %d\n", __func__,__LINE__);
     schema = malloc(sizeof(Schema));
     if (schema == NULL) {
         printf("malloc schema size fail\n");
@@ -770,7 +662,6 @@ Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *t
 RC freeSchema (Schema *schema){
     int ret = 0, i;
 
-    printf("%s, %d\n", __func__,__LINE__);
     for (i=0; i<schema->numAttr; i++)
         free(schema->attrNames[i]);
     
@@ -784,11 +675,12 @@ RC createRecord (Record **record, Schema *schema) {
     int ret = 0;
     int RecordSize;
 
-    printf("%s, %d\n", __func__,__LINE__);
     *record = malloc(sizeof(Record));
 
     RecordSize = getRecordSize(schema);
    
+    (*record)->id = *(RID *)malloc(sizeof(RID));
+
     (*record)->data = (char *) calloc(RecordSize, sizeof(char));
 
     return ret;
@@ -797,7 +689,6 @@ RC createRecord (Record **record, Schema *schema) {
 RC freeRecord (Record *record) {
     int ret = 0;
     
-    printf("%s, %d\n", __func__,__LINE__);
     free(record->data);
     free(record);
 
@@ -841,7 +732,6 @@ RC getAttr (Record *record, Schema *schema, int attrNum, Value **value) {
 RC setAttr (Record *record, Schema *schema, int attrNum, Value *value) {
     int ret = 0,  offset = 0, i;
 
-    printf("%s, %d\n", __func__,__LINE__);
     for (i = 0; i < attrNum; i++) {
         offset += schema->typeLength[i];
     }

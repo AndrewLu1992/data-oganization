@@ -8,7 +8,6 @@ BM_PageFrame* findEmpPage(BM_PageFrame * FrameListHead) {
 
     while(curFrame != NULL) {
         if(curFrame->flags == Frame_EmpPage){
-            printf("%s, %d frame%d is Empty, select it\n", __func__,__LINE__, curFrame->PFN); 
             return curFrame;
         }
         else
