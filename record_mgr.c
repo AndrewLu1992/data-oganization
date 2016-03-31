@@ -24,6 +24,16 @@ RC shutdownRecordManager (){
 	return ret;
 }
 
+/**************************************************************************
+ • description
+   Inite table Header which store table informations
+ 
+ • parameters
+    char *name, Schema *schema, BM_BufferPool *bm
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC initTableHeader(char *name, Schema *schema, BM_BufferPool *bm) {
     int ret, HeaderPageNum = 0, i, RecordSize;
     RM_TableHeader TableHeader;
@@ -83,6 +93,16 @@ RC initTableHeader(char *name, Schema *schema, BM_BufferPool *bm) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   Create the page which store the record
+ 
+ • parameters
+    int PageNum, RM_TableData *rel
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC CreateRecordPage(int PageNum, RM_TableData *rel) {
     int ret = 0, RecordSize;
     struct RM_BlockHeader blockheader;
@@ -123,7 +143,16 @@ RC CreateRecordPage(int PageNum, RM_TableData *rel) {
     return ret;
 }
 
-
+/**************************************************************************
+ • description
+   create table which store pages
+ 
+ • parameters
+    char *name, Schema *schema
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC createTable (char *name, Schema *schema) {
 	int ret = 0;
 
@@ -169,7 +198,17 @@ RC createTable (char *name, Schema *schema) {
 
 	return ret;
 }
-    
+
+/**************************************************************************
+ • description
+   parse page header which used to fetch table information
+ 
+ • parameters
+    char * page, Schema *schema
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 struct RM_TableHeader * parsePageHeader(char * page, Schema *schema) {
     int ret = 0;
     int numAttr = 0;
@@ -213,6 +252,16 @@ struct RM_TableHeader * parsePageHeader(char * page, Schema *schema) {
     return TableHeader;
 }
 
+/**************************************************************************
+ • description
+   get table information from the disk and set the information to the rel 
+ 
+ • parameters
+    RM_TableData *rel, char *name
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC openTable (RM_TableData *rel, char *name) {
     int ret = 0;
     Schema *schema;
@@ -254,6 +303,16 @@ RC openTable (RM_TableData *rel, char *name) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   close table and save table information to disk
+ 
+ • parameters
+    RM_TableData *rel
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC closeTable (RM_TableData *rel){
     int ret = 0;
     BM_BufferPool *bm;
@@ -292,6 +351,16 @@ RC closeTable (RM_TableData *rel){
     return ret;
 }
 
+/**************************************************************************
+ • description
+   delete the table and destroy pages files
+ 
+ • parameters
+    char *name
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC deleteTable (char *name){
     int ret = 0;
 
@@ -304,6 +373,16 @@ RC deleteTable (char *name){
     return ret;
 }
 
+/**************************************************************************
+ • description
+   getNum total Tuples fromt he table header
+ 
+ • parameters
+    RM_TableData *rel
+ 
+ • return value
+    return totalslot
+ ***************************************************************************/
 int getNumTuples (RM_TableData *rel) {
     int ret = 0;
     struct RM_TableHeader *TableHeader;
@@ -313,7 +392,16 @@ int getNumTuples (RM_TableData *rel) {
     return TableHeader->totalslot;
 }
 
-// handling records in a table
+/**************************************************************************
+ • description
+   insert Record at the end of the file 
+ 
+ • parameters
+    RM_TableData *rel, Record *record
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC insertRecord (RM_TableData *rel, Record *record) {
     int ret = 0, avaliablePageNum = 0, newPageNum, offset, RecordSize;
     struct RM_TableHeader * tableHeader;
@@ -383,6 +471,16 @@ RC insertRecord (RM_TableData *rel, Record *record) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   delete record by set the record to ############
+ 
+ • parameters
+    RM_TableData *rel, RID id
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC deleteRecord (RM_TableData *rel, RID id) {
     int ret = 0, offset= 0;
     struct RM_TableHeader *tableHeader;
@@ -437,6 +535,16 @@ RC deleteRecord (RM_TableData *rel, RID id) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   update Record data for order slot
+ 
+ • parameters
+    RM_TableData *rel, Record *record
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC updateRecord (RM_TableData *rel, Record *record) {
     int ret = 0, offset;
     
@@ -469,6 +577,16 @@ RC updateRecord (RM_TableData *rel, Record *record) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   get record by the order slot
+ 
+ • parameters
+    RM_TableData *rel, RID id, Record *record
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC getRecord (RM_TableData *rel, RID id, Record *record) {
     int ret = 0, offset, recordsize;
     struct RM_TableHeader *tableHeader;
@@ -517,6 +635,16 @@ RC getRecord (RM_TableData *rel, RID id, Record *record) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   fullfill the scanhelper structure which used for scan table 
+ 
+ • parameters
+   RM_TableData *rel, RM_ScanHandle *scan, Expr *cond
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 // scans
 RC startScan (RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
     int ret = 0;
@@ -536,6 +664,16 @@ RC startScan (RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   get the next record by the ordered slot id and page id 
+ 
+ • parameters
+   RM_ScanHandle *scan, Record *record
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC next (RM_ScanHandle *scan, Record *record) {
 	int ret = 0;
     int page_curr,slot, curr, total;
@@ -610,6 +748,16 @@ RC next (RM_ScanHandle *scan, Record *record) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   close the scan structure
+ 
+ • parameters
+   RM_ScanHandle *scan
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC closeScan (RM_ScanHandle *scan) {
     int ret = 0;
     scan->mgmtData = NULL;
@@ -617,7 +765,16 @@ RC closeScan (RM_ScanHandle *scan) {
     return ret;
 }
 
-// dealing with schemas
+/**************************************************************************
+ • description
+   get the record size
+ 
+ • parameters
+   Schema *schema
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 int getRecordSize (Schema *schema) {
     int recordSize = 0, i;
     
@@ -639,6 +796,16 @@ int getRecordSize (Schema *schema) {
    return recordSize;
 }
 
+/**************************************************************************
+ • description
+   create the schema and fullfill the struct of schema
+ 
+ • parameters
+   int numAttr, char **attrNames, DataType *dataTypes, int *typeLength, int keySize, int *keys
+ 
+ • return value
+    return schema
+ ***************************************************************************/
 Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *typeLength, int keySize, int *keys) {
     int ret = 0;
     Schema *schema;
@@ -659,6 +826,16 @@ Schema *createSchema (int numAttr, char **attrNames, DataType *dataTypes, int *t
     return schema;
 }
 
+/**************************************************************************
+ • description
+   free the data memory which store schema information
+ 
+ • parameters
+   Schema *schema
+ 
+ • return value
+    return ret
+ ***************************************************************************/
 RC freeSchema (Schema *schema){
     int ret = 0, i;
 
@@ -670,7 +847,16 @@ RC freeSchema (Schema *schema){
     return ret;
 }
 
-// dealing with records and attribute values
+/**************************************************************************
+ • description
+   create Record which malloc memory for the record
+ 
+ • parameters
+   Record **record, Schema *schema
+
+ • return value
+    return ret
+ ***************************************************************************/
 RC createRecord (Record **record, Schema *schema) {
     int ret = 0;
     int RecordSize;
@@ -686,6 +872,16 @@ RC createRecord (Record **record, Schema *schema) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   free the record memory space
+ 
+ • parameters
+   Record *record
+
+ • return value
+    return ret
+ ***************************************************************************/
 RC freeRecord (Record *record) {
     int ret = 0;
     
@@ -695,6 +891,16 @@ RC freeRecord (Record *record) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   get the attribute data with ordered attribute id.
+ 
+ • parameters
+   Record *record, Schema *schema, int attrNum, Value **value
+
+ • return value
+    return ret
+ ***************************************************************************/
 RC getAttr (Record *record, Schema *schema, int attrNum, Value **value) {
     int ret = 0, offset = 0, i;
     Value *Val;
@@ -729,6 +935,16 @@ RC getAttr (Record *record, Schema *schema, int attrNum, Value **value) {
     return ret;
 }
 
+/**************************************************************************
+ • description
+   set the attribute data to ordered attribute id.
+ 
+ • parameters
+   Record *record, Schema *schema, int attrNum, Value *value
+
+ • return value
+    return ret
+ ***************************************************************************/
 RC setAttr (Record *record, Schema *schema, int attrNum, Value *value) {
     int ret = 0,  offset = 0, i;
 
