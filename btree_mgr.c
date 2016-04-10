@@ -128,7 +128,7 @@ RC closeBtree (BTreeHandle *tree) {
         return ret;
     }
     
-    ret = forcePage(BM, page);
+    ret = forceFlushPool(BM);
     if (ret != RC_OK) {
         printf("%s Flush Page faiil\n", __func__);
         return RC_BM_BP_FLUSH_PAGE_FAILED;
