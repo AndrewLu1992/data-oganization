@@ -1,8 +1,16 @@
 #ifndef BTREE_MGR_H
 #define BTREE_MGR_H
 
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "dberror.h"
 #include "tables.h"
+#include "btree_mgr.h"
+#include "buffer_mgr.h"
+#include "storage_mgr.h"
+#include "record_mgr.h"
+
 
 // structure for accessing btrees
 typedef struct BTreeHandle {
@@ -15,6 +23,16 @@ typedef struct BT_ScanHandle {
   BTreeHandle *tree;
   void *mgmtData;
 } BT_ScanHandle;
+
+typedef struct BT_Info {
+    int rootPageNum;
+    int totalPages;
+    DataType keyType;
+    int height;
+    int numNodes;
+    int numEntry;
+    int N;
+} BT_Info;
 
 // init and shutdown index manager
 extern RC initIndexManager (void *mgmtData);
