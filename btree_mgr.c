@@ -227,7 +227,7 @@ struct Node * creatNode(BTreeHandle *tree, Value *key) {
 }
 
 RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
-    int ret = 0, availPage;
+    int ret = 0, availPage, offset = 0;
     struct BT_Info *btree_info;
     struct Node *root;
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
@@ -250,15 +250,38 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         btree_info->height =1;
         btree_info->totalPages = 1;
         btree_info->totalNodes = 1;
+        btree_info->totalKeys = 1;
         btree_info->numNodes = 1;
         btree_info->numEntry = btree_info->N + 1;
-        
+            
         //Write node to Page
         ret = pinPage(BM, page, availPage);
         if(ret != RC_OK) {
             printf("%s pin page fail\n", __func__);
             return ret;
+        }
+        // copy root to page data space
+        memcpy(page->data, root, sizeof(Node));
+
+        // copy pointer to page data space
+        offset = sizeof(Node);
+        memcpy(page->data + offset, root->pointerArray, sizeof(int) * (btree_info->N));
+
+        // copy key to page data space
+        offset += sizeof(int) * (btree_info->N);
+        switch (tree->keyType) {
+            case DT_INT:
+                memcpy(page->data + offset, root->index.intV, sizeof(int) * btree_info->N);
+                break;
+            case DT_BOOL:
+                memcpy(page->data + offset, root->index.boolV, sizeof(bool) * btree_info->N);
+                break;
+            case DT_FLOAT:
+                memcpy(page->data + offset, root->index.floatV, sizeof(float) * btree_info->N);
+                break;
         } 
+        free(tree->mgmtData);
+        unpinPage(BM, page);
     }
 /*
     // Get the node Position for the inserted Key

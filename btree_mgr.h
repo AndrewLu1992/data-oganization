@@ -27,6 +27,7 @@ typedef struct BT_Info {
     int rootPageNum;
     int totalNodes;
     int totalPages;
+    int totalKeys;
     DataType keyType;
     int height;
     int numNodes;
