@@ -46,6 +46,9 @@ typedef int RC;
 #define RC_INVALID_SLOT_NUMBER 211
 #define RC_RECORD_REMOVED 212
 
+// error code for BTree+-
+#define RC_CREATE_NODE_FAILED 220
+
 #define RC_IM_KEY_NOT_FOUND 300
 #define RC_IM_KEY_ALREADY_EXISTS 301
 #define RC_IM_N_TO_LAGE 302

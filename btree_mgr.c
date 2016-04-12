@@ -60,12 +60,13 @@ RC createBtree (char *idxId, DataType keyType, int n){
     } 
 
     btInfo.rootPageNum = 1;
+    btInfo.totalNodes = 0;
     btInfo.totalPages = 1;
     btInfo.keyType;
     btInfo.height;
-    btInfo.numNodes;
-    btInfo.numEntry;
-    btInfo.N = n;
+    btInfo.numNodes=0;
+    btInfo.numEntry=0;
+    btInfo.N = n;// Num of search key in a node
 
     memcpy(page->data, &btInfo, sizeof(BT_Info));
 
@@ -183,9 +184,99 @@ RC findKey (BTreeHandle *tree, Value *key, RID *result) {
     return ret;
 }
 
-RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
-    int ret = 0;
+struct Node * creatNode(BTreeHandle *tree, Value *key) {
+    struct BT_Info *btreeInfo;
+    struct Node *node;
+    DataType keyType;
+    int MaxNumKeys, *pointerArray;
+    void *keyArray;
 
+    btreeInfo = (struct BT_Info *)tree->mgmtData;
+    keyType = tree->keyType;
+    MaxNumKeys = btreeInfo->N;
+
+    node = (struct Node *)malloc(sizeof(Node));
+
+    switch (keyType) {
+        case DT_INT:
+            keyArray = (void *)malloc(sizeof(int)* MaxNumKeys);
+            memcpy(keyArray, &(key->v.intV), sizeof(int));
+            node->index.intV = (int *)keyArray;
+            break;
+        case DT_BOOL:
+            keyArray = (void *)malloc(sizeof(bool)* MaxNumKeys);
+            memcpy(keyArray, &(key->v.boolV), sizeof(bool));
+            node->index.boolV = (bool *)keyArray;
+            break;
+        case DT_FLOAT:
+            keyArray = (void *)malloc(sizeof(float)* MaxNumKeys);
+            memcpy(keyArray, &(key->v.floatV), sizeof(float));
+            node->index.floatV = (float *)keyArray;
+            break;
+        case DT_STRING:
+            break;
+    }
+    pointerArray = (int *)malloc(sizeof(int) * (MaxNumKeys+1));
+
+    node->NumOfKeys = 0;
+    node->parent = 0;
+    node->sibling= 0;
+    node->pointerArray = pointerArray;
+
+    return node;
+}
+
+RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
+    int ret = 0, availPage;
+    struct BT_Info *btree_info;
+    struct Node *root;
+    BM_PageHandle *page = MAKE_PAGE_HANDLE();
+
+    btree_info = (struct BT_Info *)tree->mgmtData;
+    availPage = btree_info->totalPages;
+
+    //Creat Root
+    if (btree_info->totalNodes == 0){
+        root = creatNode(tree, key);
+        if (root == NULL) {
+            printf("Create Node Fail\n");
+            return RC_CREATE_NODE_FAILED;
+        }
+
+        root->NodeType = NT_ROOT;
+        root->NumOfKeys = 1;
+
+        //update Btree info
+        btree_info->height =1;
+        btree_info->totalPages = 1;
+        btree_info->totalNodes = 1;
+        btree_info->numNodes = 1;
+        btree_info->numEntry = btree_info->N + 1;
+        
+        //Write node to Page
+        ret = pinPage(BM, page, availPage);
+        if(ret != RC_OK) {
+            printf("%s pin page fail\n", __func__);
+            return ret;
+        } 
+    }
+/*
+    // Get the node Position for the inserted Key
+    findKeyNode() 
+    
+    
+    
+    switch(){
+        case NS_SIMPLE_CASE:   //space available in leaf
+        break;
+        case NS_LEAF_OVERFLOW:
+        break;
+        case NS_NON_LEAF_OVERFLOW:
+        break;
+        case NS_ROOT_OVERFLOW:
+        break;
+    }
+*/
     return ret;
 }
 
