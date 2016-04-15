@@ -49,17 +49,22 @@ typedef enum NodeOperation {
 } NodeStatus;
 
 typedef struct Node {
+    int PageID;
+    int NodeID;
     int NodeType;
     int NumOfKeys;
     int parent;
     int sibling;
-    union index {
+    union key {
         int* intV;
         //char *stringV;
         float* floatV;
         bool* boolV;
-    } index;
-    int *pointerArray;
+    } key;
+    union pointers {
+        int * pArr;
+        struct RID * RIDArr;
+    } pointers;
 } Node;
 
 // init and shutdown index manager
