@@ -61,7 +61,7 @@ RC createBtree (char *idxId, DataType keyType, int n){
 
     btInfo.rootPageNum = 0;
     btInfo.totalPages = 1;
-    btInfo.keyType = keyType
+    btInfo.keyType = keyType;
     btInfo.height;
     btInfo.numNodes=0;
     btInfo.numEntry=0;
@@ -177,7 +177,7 @@ RC getKeyType (BTreeHandle *tree, DataType *result) {
 }
 
 struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
-    int offset = 0, ret=0, *pArr, pArrSize=0, tmp,i;
+    int offset = 0, ret=0, *pArr, pArrSize=0, tmp,i, RIDArrSize = 0, KeyArrSize=0;
     struct BT_Info *btree_info;
     struct Node node;
     BM_PageHandle *page = MAKE_PAGE_HANDLE();
@@ -194,69 +194,74 @@ struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
     memcpy(&node, page->data, sizeof(struct Node));
 
     // Debug Node from memory
-    printf("%s, %d , PageNum is %d, NodeType is %d, NumOfKeys is %d, Parent is %d, child is %d\n", 
+    printf("%s, %d , PageNum is %d, NodeType is %d, NumEntry is %d, Parent is %d, child is %d\n", 
                 __func__, __LINE__,
                 node.PageNum,
                 node.NodeType,
-                node.NumOfKeys,
+                node.NumEntry,
                 node.pre,
                 node.next);
+    //Caculate Key Array Size
+    KeyArrSize = sizeof(struct Value) * (btree_info->N);
 
+    // Malloc Array for Key Array
+    node.KeyArr = (struct Value *) malloc(KeyArrSize);
+    
+    //Copy data from DISK
+    offset = sizeof(struct Node);
+    memcpy(node.KeyArr, page->data+offset, KeyArrSize);
+
+    offset += KeyArrSize; 
     // Find the Leaf Node and return the node structure
     if(node.NodeType == NT_LEAF) {
         printf("Find the leaf\n");
+
+        //Malloc the array to store pointer array and Entry Array
+        RIDArrSize = sizeof(struct RID) * (btree_info->N);
+
+        node.pointers.RIDArr = (struct RID *)malloc(RIDArrSize);
+
+        memcpy(node.pointers.RIDArr, page->data+offset, RIDArrSize);
+
         unpinPage(BM, page);
         return node;
     }
 
     //Malloc the array to store pointer array
-    pArrSize = sizeof(int) * (node.NumOfKeys+1);
+    pArrSize = sizeof(int) * (btree_info->N+1);
     node.pointers.pArr = (int *)malloc(pArrSize);
 
     //FullFill pointer Array
-    offset = sizeof(struct Node);
     memcpy(node.pointers.pArr, page->data+offset, pArrSize);
 
-
-    //Fetch key from memory
-    offset+= sizeof(int) * (btree_info->N+1);
-
-    switch (tree->keyType) {
-        case DT_INT:
-            node.key.intV = (void *)malloc(sizeof(int) * node.NumOfKeys);
-            memcpy(node.key.intV, page->data+offset, sizeof(int) * node.NumOfKeys);
-
-            //Find the Leaf node
-            for(i=0;i<node.NumOfKeys;i++) {
-                printf("keyArr i %d is %d, key is %d \n",i, node.key.intV[i], key->v.intV);
-                if(key->v.intV <= node.key.intV[i]) {
+    // Find the next node to access
+    for (i =0;i<node.NumEntry;i++) {
+        ret = memcmp(key, &(node.KeyArr[i]), sizeof(struct Value));
+        // Key <= KeyArr[i]
+        if (ret <=0) {
                     tmp =  node.pointers.pArr[i];
-                    free(node.key.intV);
+                    free(node.KeyArr);
                     free(node.pointers.pArr);
                     unpinPage(BM, page);
                     return findLeafNode(tree, node.pointers.pArr[i], key);
+        }
+    }
+
+    printf("Key is greater than the last value in Key Arr");
+    tmp =  node.pointers.pArr[i];
+    free(node.KeyArr);
+    free(node.pointers.pArr);
+    unpinPage(BM, page);
+    return findLeafNode(tree, node.pointers.pArr[i], key);
+    
+    /*
+        switch (tree->keyType) {
+        case DT_INT:
+                if(key->v.intV <= node.KeyArr[i].v.intV) {
                 }
-            }
-            if(key->v.intV > node.key.intV[i-1]){
-                printf("keyArr i %d is %d  key is %d \n",i, node.key.intV[i], key->v.intV);
-                tmp =  node.pointers.pArr[i];
-                free(node.key.intV);
-                free(node.pointers.pArr);
-                unpinPage(BM, page);
-                return findLeafNode(tree, node.pointers.pArr[i], key);
-            }
- 
-            free(node.key.intV);
-            
             break;
         case DT_BOOL:
-            node.key.boolV = (bool *) malloc(sizeof(bool) * node.NumOfKeys);
-            memcpy(node.key.boolV, page->data+offset, sizeof(bool) * node.NumOfKeys);
-            
-            //Find the Leaf node
-            for(i=0;i<node.NumOfKeys;i++) {
-                printf("keyArr i %d is %d, key is %d \n",i, node.key.boolV[i], key->v.boolV);
-                if(key->v.boolV <= node.key.boolV[i]) {
+                if(key->v.boolV <= node.KeyArr[i].boolV[i]) {
                     tmp =  node.pointers.pArr[i];
                     free(node.key.boolV);
                     free(node.pointers.pArr);
@@ -265,7 +270,7 @@ struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
                 }
             }
             if(key->v.boolV > node.key.boolV[i-1]){
-                printf("keyArr i %d is %d  key is %d \n",i, node.key.boolV[i], key->v.boolV);
+                printf("KeyArr i %d is %d  key is %d \n",i, node.key.boolV[i], key->v.boolV);
                 tmp =  node.pointers.pArr[i];
                 free(node.key.boolV);
                 free(node.pointers.pArr);
@@ -275,12 +280,12 @@ struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
             
             break;
         case DT_FLOAT:
-            node.key.floatV = (float *) malloc(sizeof(float) * node.NumOfKeys);
-            memcpy(node.key.floatV, page->data+offset, sizeof(float) * node.NumOfKeys);
+            node.key.floatV = (float *) malloc(sizeof(float) * node.NumEntry);
+            memcpy(node.key.floatV, page->data+offset, sizeof(float) * node.NumEntry);
             
             //Find the Leaf node
-            for(i=0;i<node.NumOfKeys;i++) {
-                printf("keyArr i %d is %f greater than  key %f \n",i, node.key.floatV[i], key->v.floatV);
+            for(i=0;i<node.NumEntry;i++) {
+                printf("KeyArr i %d is %f greater than  key %f \n",i, node.key.floatV[i], key->v.floatV);
                 if(key->v.floatV <= node.key.floatV[i]) {
                     tmp =  node.pointers.pArr[i];
                     free(node.key.floatV);
@@ -290,7 +295,7 @@ struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
                 }
             }
             if(key->v.floatV > node.key.floatV[i-1]){
-                printf("keyArr i %d is %f is less than  key %f \n",i, node.key.floatV[i], key->v.floatV);
+                printf("KeyArr i %d is %f is less than  key %f \n",i, node.key.floatV[i], key->v.floatV);
                 
                 tmp =  node.pointers.pArr[i];
                 free(node.key.floatV);
@@ -304,7 +309,7 @@ struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
         case DT_STRING:
             break;
     }
-    
+        */
     return node;
 }
 
@@ -320,78 +325,20 @@ RC findKey (BTreeHandle *tree, Value *key, RID *result) {
     rootPage = btreeInfo->rootPageNum;
 
     node = findLeafNode(tree, rootPage, key);
-        
-    ret = pinPage(BM, page, node.PageNum);
-    if(ret != RC_OK) {
-        printf("%s pin page fail\n", __func__);
-        return ret;
+
+    for(i=0; i < node.NumEntry;i++) {
+        ret = memcmp(&(node.KeyArr[i]), key, sizeof(Value));
+        if(ret == 0) {
+            printf("Key had find out\n");
+            memcpy(result, &(node.pointers.RIDArr[i]), sizeof(struct RID));
+
+            free(node.KeyArr);
+            free(node.pointers.RIDArr);
+            unpinPage(BM, page);
+            return RC_OK;
+        }
     }
-    //Malloc the array to store pointer array
-    RIDArrSize = sizeof(struct RID) * node.NumOfKeys;
-    node.pointers.RIDArr = (struct RID *)malloc(RIDArrSize);
 
-    offset = sizeof(struct Node);
-    memcpy(node.pointers.RIDArr, page->data+offset, RIDArrSize);
-
-    offset += sizeof(struct RID) * btreeInfo->N;
-
-    switch (tree->keyType) {
-        case DT_INT:
-            node.key.intV = (void *)malloc(sizeof(int) * node.NumOfKeys);
-            memcpy(node.key.intV, page->data+offset, sizeof(int) * node.NumOfKeys);
-
-            //Find the Leaf node
-            for(i=0;i<node.NumOfKeys;i++) {
-                printf("%s, %d keyArr i %d is %d, key is %d \n",__func__,__LINE__,i, node.key.intV[i], key->v.intV);
-                if(key->v.intV == node.key.intV[i]) {
-                    memcpy(result, &(node.pointers.RIDArr[i]), sizeof(struct RID));
-                    free(node.key.intV);
-                    free(node.pointers.RIDArr);
-                    unpinPage(BM, page);
-                    return RC_OK;
-                }
-            }
- 
-            break;
-        case DT_BOOL:
-            node.key.boolV = (bool *) malloc(sizeof(bool) * node.NumOfKeys);
-            memcpy(node.key.boolV, page->data+offset, sizeof(bool) * node.NumOfKeys);
-            
-            //Find the Leaf node
-            for(i=0;i<node.NumOfKeys;i++) {
-                printf("keyArr i %d is %d, key is %d \n",i, node.key.boolV[i], key->v.boolV);
-                if(key->v.boolV == node.key.boolV[i]) {
-                    memcpy(result, &(node.pointers.RIDArr[i]), sizeof(struct RID));
-                    free(node.key.boolV);
-                    free(node.pointers.RIDArr);
-                    unpinPage(BM, page);
-                    return RC_OK;
-                }
-            }
-            
-            break;
-        case DT_FLOAT:
-            node.key.floatV = (float *) malloc(sizeof(float) * node.NumOfKeys);
-            memcpy(node.key.floatV, page->data+offset, sizeof(float) * node.NumOfKeys);
-            printf("keyArr i %d is %d, key is %f \n",i, node.key.boolV[i], key->v.floatV);
-            
-            //Find the Leaf node
-            for(i=0;i<node.NumOfKeys;i++) {
-                if(key->v.floatV == node.key.boolV[i]) {
-                    memcpy(result, &(node.pointers.RIDArr[i]), sizeof(struct RID));
-                    free(node.key.floatV);
-                    free(node.pointers.RIDArr);
-                    unpinPage(BM, page);
-                    return RC_OK;
-                }
-            }
-
-            break;
-
-        case DT_STRING:
-            break;
-    }
-    
     printf("Cannot Find key %d in the tree, return -1\n", key->v.intV);
 
     unpinPage(BM, page);
@@ -401,18 +348,19 @@ RC findKey (BTreeHandle *tree, Value *key, RID *result) {
 struct Node * creatNode(BTreeHandle *tree, Value *key, NodeType nodeType) {
     struct BT_Info *btreeInfo;
     struct Node *node;
-    DataType keyType;
     int MaxNumKeys;
 
     btreeInfo = (struct BT_Info *)tree->mgmtData;
-    keyType = tree->keyType;
     MaxNumKeys = btreeInfo->N;
 
     node = (struct Node *)malloc(sizeof(Node));
 
-    switch (keyType) {
+    node->KeyArr = (struct Value *)malloc(sizeof(struct Value)* MaxNumKeys);
+
+    memcpy( &node->KeyArr[0], key, sizeof(struct Value));
+    /* 
+    switch (tree->keyType) {
         case DT_INT:
-            node->key.intV = (int *)malloc(sizeof(int)* MaxNumKeys);
             node->key.intV[0] = key->v.intV;
             //memcpy(node->key.intV, &(key->v.intV), sizeof(int));
             break;
@@ -429,29 +377,29 @@ struct Node * creatNode(BTreeHandle *tree, Value *key, NodeType nodeType) {
         case DT_STRING:
             break;
     }
-
+    */
     switch (nodeType) {
         case NT_ROOT:
             node->pointers.pArr = (int *)malloc(sizeof(int) * (MaxNumKeys+1));
-            node->nodeType = NT_ROOT;
+            node->NodeType = NT_ROOT;
             break;
         case NT_LEAF:
             node->pointers.RIDArr =  (struct RID *)malloc(sizeof(struct RID) * MaxNumKeys);
-            node->nodeType = NT_LEAF;
+            node->NodeType = NT_LEAF;
             break; 
         case NT_NON_LEAF:
             node->pointers.pArr = (int *)malloc(sizeof(int) * (MaxNumKeys+1));
-            node->nodeType = NT_NON_LEAF;
+            node->NodeType = NT_NON_LEAF;
             break;
     }
 
-    node->NumOfKeys = 1;
-    node->PageNum = tree->totalPages;
-    node->ID = tree->numNodes;
+    node->NumEntry = 1;
+    node->PageNum = btreeInfo->totalPages;
+    node->NodeID = btreeInfo->numNodes;
 
-    tree->totalPages++;
-    tree->numNodes++;
-    tree->numEntry++; 
+    btreeInfo->totalPages++;
+    btreeInfo->numNodes++;
+    btreeInfo->numEntry++; 
     return node;
 }
 
@@ -472,41 +420,43 @@ RC saveNode(struct Node *node, BTreeHandle *tree) {
         // copy root to page data space
         memcpy(page->data, node, sizeof(Node));
 
-        //  pointer to page data space
+        //save  key array to page
         offset = sizeof(Node);
-    
+        memcpy(page->data + offset, node->KeyArr, sizeof(struct Value) * (node->NumEntry));
+        
+        // save Pointer array to page 
+        offset += sizeof(struct Value) * (node->NumEntry);
         switch (node->NodeType) {
             case NT_ROOT:
-                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (node->NumOfKeys));
+                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (node->NumEntry));
                 free(node->pointers.pArr);
                 break;
             case NT_LEAF:
-                memcpy(page->data + offset, node->pointers.RIDArr, sizeof(struct RID) * (node->NumOfKeys));
+                memcpy(page->data + offset, node->pointers.RIDArr, sizeof(struct RID) * (node->NumEntry));
                 free(node->pointers.RIDArr);
                 break; 
             case NT_NON_LEAF:
-                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (node->NumOfKeys));
+                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (node->NumEntry));
                 free(node->pointers.pArr);
                 break;
         }
-
-        // copy key to page data space
+/*
         offset += sizeof(int) * (btree_info->N);
         switch (tree->keyType) {
             case DT_INT:
-                memcpy(page->data + offset, node->key.intV, sizeof(int) * node->NumOfKeys);
+                memcpy(page->data + offset, node->key.intV, sizeof(int) * node->NumEntry);
                 free(node->key.intV);
                 break;
             case DT_BOOL:
-                memcpy(page->data + offset, node->key.boolV, sizeof(bool) * node->NumOfKeys);
+                memcpy(page->data + offset, node->key.boolV, sizeof(bool) * node->NumEntry);
                 free(node->key.boolV);
                 break;
             case DT_FLOAT:
-                memcpy(page->data + offset, node->key.floatV, sizeof(float) * node->NumOfKeys);
+                memcpy(page->data + offset, node->key.floatV, sizeof(float) * node->NumEntry);
                 free(node->key.floatV);
                 break;
         } 
-    
+*/    
         ret = markDirty(BM, page);
 
         if (ret != RC_OK){
@@ -514,30 +464,32 @@ RC saveNode(struct Node *node, BTreeHandle *tree) {
             return ret;
         }
 
-        unpinPage(BM, page);
-    
+        free(node->KeyArr);        
         free(node);
+        unpinPage(BM, page);
 
         return ret;
 }
 
 RC insertKeyIntoLeaf(BTreeHandle *tree, struct Node *node, Value *key) {
     int ret = 0;
-
+    
+    memcpy(&(node->KeyArr[node->NumEntry]), key, sizeof(struct Value));
+/*
     switch(tree->keyType) {
         case DT_INT:
             printf("%s, %d, key is %d\n", __func__,__LINE__, key->v.intV);
-            node->key.intV[node.NumOfKeys] = key->v.intV;
+            node->key.intV[node->NumEntry] = key->v.intV;
             break;
         case DT_BOOL:
-            node->key.boolV[node.NumOfKeys] = key->v.boolV;
+            node->key.boolV[node->NumEntry] = key->v.boolV;
             break;
         case DT_FLOAT:
             printf("%s, %d, key is %f\n", __func__,__LINE__, key->v.floatV);
-            node->key.floatV[node.NumOfKeys] = key->v.floatV;
+            node->key.floatV[node->NumEntry] = key->v.floatV;
             break;
     }
-
+*/
     return ret;
 }
 
@@ -551,8 +503,8 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
     btree_Info = (struct BT_Info *)tree->mgmtData;
 
     // Get the node Position for the inserted Key
-    ret = findKey (tree, key, &result);
-    if (ret == 0 and result == rid) {
+    ret = findKey(tree, key, &result);
+    if (ret == 0) {
         printf("Key already exist");
         return RC_OK;
     }
@@ -560,7 +512,7 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
     printf("Key do not exist in the tree\n");
 
     //Key is not exist in the tree
-    rootPage = btreeInfo->rootPageNum;
+    rootPage = btree_Info->rootPageNum;
 
     //Empty Tree
     if(rootPage = 0) {
@@ -570,8 +522,6 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         rootNode->pointers.pArr[0]= leafNode->PageNum;
         
         leafNode->pointers.RIDArr[0] = rid;
-        leafNode->pre = NULL;
-        learNode->next = NULL;
 
         //Save Root Node        
         ret = saveNode(rootNode, tree);
@@ -592,10 +542,11 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
 
     node = findLeafNode(tree, rootPage, key);
    
-    if(Node.NumOfKeys < btree_Info.N)
+    if(node.NumEntry < btree_Info->N)
         //simple case
         insertKeyIntoLeaf(tree, &node, key);
-    else {
+//    else {
+/*
         //(b) leaf overflow
 (b) leaf overflow
 (c) non-leaf overflow
@@ -605,7 +556,7 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
     }
 
     ret  = updateTree();
-    
+  */  
     return ret;
 }
 

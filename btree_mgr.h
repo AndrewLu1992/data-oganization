@@ -50,18 +50,14 @@ typedef struct Node {
     int PageNum;
     int NodeID;
     int NodeType;
-    int NumOfKeys;
+    int NumEntry;
     int pre;
     int next;
-    union key {
-        int* intV;
-        //char *stringV;
-        float* floatV;
-        bool* boolV;
-    } key;
+    struct Value *KeyArr;
+ 
     union pointers {
-        int * pArr;
-        struct RID * RIDArr;
+        int *pArr;
+        struct RID *RIDArr;
     } pointers;
 } Node;
 
