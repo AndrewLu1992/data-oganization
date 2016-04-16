@@ -414,15 +414,18 @@ struct Node * creatNode(BTreeHandle *tree, Value *key, NodeType nodeType) {
     switch (keyType) {
         case DT_INT:
             node->key.intV = (int *)malloc(sizeof(int)* MaxNumKeys);
-            memcpy(node->key.intV, &(key->v.intV), sizeof(int));
+            node->key.intV[0] = key->v.intV;
+            //memcpy(node->key.intV, &(key->v.intV), sizeof(int));
             break;
         case DT_BOOL:
             node->key.boolV = (bool *) malloc(sizeof(bool)* MaxNumKeys);
-            memcpy(node->key.boolV, &(key->v.boolV), sizeof(bool));
+            node->key.boolV[0] = key->v.boolV;
+            //memcpy(node->key.boolV, &(key->v.boolV), sizeof(bool));
             break;
         case DT_FLOAT:
             node->key.floatV = (float *)malloc(sizeof(float)* MaxNumKeys);
-            memcpy(node->key.floatV, &(key->v.floatV), sizeof(float));
+            node->key.floatV[0] = key->v.floatV;
+            //memcpy(node->key.floatV, &(key->v.floatV), sizeof(float));
             break;
         case DT_STRING:
             break;
@@ -438,8 +441,7 @@ struct Node * creatNode(BTreeHandle *tree, Value *key, NodeType nodeType) {
         case NT_NON_LEAF:
             node->pointers.pArr = (int *)malloc(sizeof(int) * (MaxNumKeys+1));
             break;
-    }    
-
+    }
 
     node->NumOfKeys = 0;
     node->parent = 0;
@@ -506,14 +508,15 @@ RC saveNode(struct Node * node, BTreeHandle *tree) {
 }
 
 RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
-    int ret = 0, availPage;
-    struct BT_Info *btree_info;
-    struct Node *root;
+    int ret = 0, availPage, rootPage;
+    struct BT_Info *btree_Info;
+    struct Node *root, node;
+    struct RID result;
 
-    btree_info = (struct BT_Info *)tree->mgmtData;
-    
+    btree_Info = (struct BT_Info *)tree->mgmtData;
+/*    
     //Creat Root
-    if (btree_info->totalNodes == 0){
+    if (btree_Info->totalNodes == 0){
         root = creatNode(tree, key, NT_ROOT);
         if (root == NULL) {
             printf("Create Node Fail\n");
@@ -524,12 +527,12 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         root->NumOfKeys = 1;
 
         //update Btree info
-        btree_info->height =1;
-        btree_info->totalPages = 1;
-        btree_info->totalNodes = 1;
-        btree_info->totalKeys = 1;
-        btree_info->numNodes = 1;
-        btree_info->numEntry = btree_info->N + 1;
+        btree_Info->height =1;
+        btree_Info->totalPages = 1;
+        btree_Info->totalNodes = 1;
+        btree_Info->totalKeys = 1;
+        btree_Info->numNodes = 1;
+        btree_Info->numEntry = btree_Info->N + 1;
             
         ret = saveNode(root, tree);
         if (ret != RC_OK) {
@@ -537,12 +540,28 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
             return -1;
         }
     }
-
-/*
+*/
     // Get the node Position for the inserted Key
-    findKeyNode() 
+    ret = findKey (tree, key, &result);
+    if (ret == 0 and result == rid) {
+        printf("Key already exist");
+        return RC_OK;
+    }
     
+    //Key is not exist in the tree
+    rootPage = btreeInfo->rootPageNum;
+
+    node = findLeafNode(tree, rootPage, key);
+   
+    if(Node.NumOfKeys == btree_Info.N) 
+        creatNode(tree, key, NT_ROOT);  // create a new node as node is full 
+        updateTree();
+    else
+        xxx
+        insertKeyIntoLeaf
+        Update Tree
     
+
     
     switch(){
         case NS_SIMPLE_CASE:   //space available in leaf
@@ -554,7 +573,6 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         case NS_ROOT_OVERFLOW:
         break;
     }
-  */  
     return ret;
 }
 
