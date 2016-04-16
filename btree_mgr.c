@@ -59,10 +59,10 @@ RC createBtree (char *idxId, DataType keyType, int n){
         return ret;
     } 
 
-    btInfo.rootPageNum = 1;
+    btInfo.rootPageNum = 0;
     btInfo.totalNodes = 0;
     btInfo.totalPages = 1;
-    btInfo.keyType;
+    btInfo.keyType = keyType
     btInfo.height;
     btInfo.numNodes=0;
     btInfo.numEntry=0;
@@ -195,9 +195,9 @@ struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
     memcpy(&node, page->data, sizeof(struct Node));
 
     // Debug Node from memory
-    printf("%s, %d , PageID is %d, NodeType is %d, NumOfKeys is %d, Parent is %d, sibling is %d\n", 
+    printf("%s, %d , PageNum is %d, NodeType is %d, NumOfKeys is %d, Parent is %d, sibling is %d\n", 
                 __func__, __LINE__,
-                node.PageID,
+                node.PageNum,
                 node.NodeType,
                 node.NumOfKeys,
                 node.parent,
@@ -322,7 +322,7 @@ RC findKey (BTreeHandle *tree, Value *key, RID *result) {
 
     node = findLeafNode(tree, rootPage, key);
         
-    ret = pinPage(BM, page, node.PageID);
+    ret = pinPage(BM, page, node.PageNum);
     if(ret != RC_OK) {
         printf("%s pin page fail\n", __func__);
         return ret;
@@ -443,9 +443,10 @@ struct Node * creatNode(BTreeHandle *tree, Value *key, NodeType nodeType) {
             break;
     }
 
-    node->NumOfKeys = 0;
+    node->NumOfKeys = 1;
     node->parent = 0;
     node->sibling= 0;
+    node->PageNum = tree->totalPages;
 
     return node;
 }
@@ -456,7 +457,7 @@ RC saveNode(struct Node * node, BTreeHandle *tree) {
         BM_PageHandle *page = MAKE_PAGE_HANDLE();
     
         btree_info = (struct BT_Info *)tree->mgmtData;
-        availPage = btree_info->totalPages;
+        //availPage = btree_info->totalPages; not true
 
         //Write node to Page
         ret = pinPage(BM, page, availPage);
@@ -507,10 +508,30 @@ RC saveNode(struct Node * node, BTreeHandle *tree) {
         return ret;
 }
 
+RC insertKeyIntoLeaf(BTreeHandle *tree, struct Node *node, Value *key) {
+    int ret = 0;
+
+    switch(tree->keyType) {
+        case DT_INT:
+            printf("%s, %d, key is %d\n", __func__,__LINE__, key->v.intV);
+            node->key.intV[node.NumOfKeys] = key->v.intV;
+            break;
+        case DT_BOOL:
+            node->key.boolV[node.NumOfKeys] = key->v.boolV;
+            break;
+        case DT_FLOAT:
+            printf("%s, %d, key is %f\n", __func__,__LINE__, key->v.floatV);
+            node->key.floatV[node.NumOfKeys] = key->v.floatV;
+            break;
+    }
+
+    return ret;
+}
+
 RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
     int ret = 0, availPage, rootPage;
     struct BT_Info *btree_Info;
-    struct Node *root, node;
+    struct Node *newNode, node;
     struct RID result;
 
     btree_Info = (struct BT_Info *)tree->mgmtData;
@@ -548,31 +569,32 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         return RC_OK;
     }
     
+    printf("Key do not exist in the tree\n");
+
     //Key is not exist in the tree
     rootPage = btreeInfo->rootPageNum;
 
+    //Empty Tree
+    if(rootPage = 0) {
+        creatNode(tree, key, NT_LEAF);  //creat a leaf node
+    }
+
     node = findLeafNode(tree, rootPage, key);
    
-    if(Node.NumOfKeys == btree_Info.N) 
-        creatNode(tree, key, NT_ROOT);  // create a new node as node is full 
-        updateTree();
-    else
-        xxx
-        insertKeyIntoLeaf
-        Update Tree
-    
+    if(Node.NumOfKeys < btree_Info.N)
+        //simple case
+        insertKeyIntoLeaf(tree, &node, key);
+    else {
+        //(b) leaf overflow
+(b) leaf overflow
+(c) non-leaf overflow
+(d) new root
 
-    
-    switch(){
-        case NS_SIMPLE_CASE:   //space available in leaf
-        break;
-        case NS_LEAF_OVERFLOW:
-        break;
-        case NS_NON_LEAF_OVERFLOW:
-        break;
-        case NS_ROOT_OVERFLOW:
-        break;
+        newNode = creatNode(tree, key, NT_NON_LEAF);  // create a new node as node is full 
     }
+
+    ret  = updateTree();
+    
     return ret;
 }
 
