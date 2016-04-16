@@ -25,9 +25,7 @@ typedef struct BT_ScanHandle {
 
 typedef struct BT_Info {
     int rootPageNum;
-    int totalNodes;
     int totalPages;
-    int totalKeys;
     DataType keyType;
     int height;
     int numNodes;
@@ -49,12 +47,12 @@ typedef enum NodeOperation {
 } NodeStatus;
 
 typedef struct Node {
-    int PageID;
+    int PageNum;
     int NodeID;
     int NodeType;
     int NumOfKeys;
-    int parent;
-    int sibling;
+    int pre;
+    int next;
     union key {
         int* intV;
         //char *stringV;

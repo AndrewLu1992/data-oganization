@@ -60,7 +60,6 @@ RC createBtree (char *idxId, DataType keyType, int n){
     } 
 
     btInfo.rootPageNum = 0;
-    btInfo.totalNodes = 0;
     btInfo.totalPages = 1;
     btInfo.keyType = keyType
     btInfo.height;
@@ -195,13 +194,13 @@ struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
     memcpy(&node, page->data, sizeof(struct Node));
 
     // Debug Node from memory
-    printf("%s, %d , PageNum is %d, NodeType is %d, NumOfKeys is %d, Parent is %d, sibling is %d\n", 
+    printf("%s, %d , PageNum is %d, NodeType is %d, NumOfKeys is %d, Parent is %d, child is %d\n", 
                 __func__, __LINE__,
                 node.PageNum,
                 node.NodeType,
                 node.NumOfKeys,
-                node.parent,
-                node.sibling);
+                node.pre,
+                node.next);
 
     // Find the Leaf Node and return the node structure
     if(node.NodeType == NT_LEAF) {
@@ -433,25 +432,30 @@ struct Node * creatNode(BTreeHandle *tree, Value *key, NodeType nodeType) {
 
     switch (nodeType) {
         case NT_ROOT:
-//            node->pointers.RIDArr = 
+            node->pointers.pArr = (int *)malloc(sizeof(int) * (MaxNumKeys+1));
+            node->nodeType = NT_ROOT;
             break;
         case NT_LEAF:
             node->pointers.RIDArr =  (struct RID *)malloc(sizeof(struct RID) * MaxNumKeys);
+            node->nodeType = NT_LEAF;
             break; 
         case NT_NON_LEAF:
             node->pointers.pArr = (int *)malloc(sizeof(int) * (MaxNumKeys+1));
+            node->nodeType = NT_NON_LEAF;
             break;
     }
 
     node->NumOfKeys = 1;
-    node->parent = 0;
-    node->sibling= 0;
     node->PageNum = tree->totalPages;
+    node->ID = tree->numNodes;
 
+    tree->totalPages++;
+    tree->numNodes++;
+    tree->numEntry++; 
     return node;
 }
 
-RC saveNode(struct Node * node, BTreeHandle *tree) {
+RC saveNode(struct Node *node, BTreeHandle *tree) {
         int offset = 0, availPage, ret=0;
         struct BT_Info *btree_info;
         BM_PageHandle *page = MAKE_PAGE_HANDLE();
@@ -473,7 +477,8 @@ RC saveNode(struct Node * node, BTreeHandle *tree) {
     
         switch (node->NodeType) {
             case NT_ROOT:
-//            node->pointers.RIDArr = 
+                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (node->NumOfKeys));
+                free(node->pointers.pArr);
                 break;
             case NT_LEAF:
                 memcpy(page->data + offset, node->pointers.RIDArr, sizeof(struct RID) * (node->NumOfKeys));
@@ -501,6 +506,14 @@ RC saveNode(struct Node * node, BTreeHandle *tree) {
                 free(node->key.floatV);
                 break;
         } 
+    
+        ret = markDirty(BM, page);
+
+        if (ret != RC_OK){
+            printf("%s Mark Dirty Page fail\n", __func__);
+            return ret;
+        }
+
         unpinPage(BM, page);
     
         free(node);
@@ -532,36 +545,11 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
     int ret = 0, availPage, rootPage;
     struct BT_Info *btree_Info;
     struct Node *newNode, node;
+    struct Node *rootNode, *leafNode;
     struct RID result;
 
     btree_Info = (struct BT_Info *)tree->mgmtData;
-/*    
-    //Creat Root
-    if (btree_Info->totalNodes == 0){
-        root = creatNode(tree, key, NT_ROOT);
-        if (root == NULL) {
-            printf("Create Node Fail\n");
-            return RC_CREATE_NODE_FAILED;
-        }
 
-        root->NodeType = NT_ROOT;
-        root->NumOfKeys = 1;
-
-        //update Btree info
-        btree_Info->height =1;
-        btree_Info->totalPages = 1;
-        btree_Info->totalNodes = 1;
-        btree_Info->totalKeys = 1;
-        btree_Info->numNodes = 1;
-        btree_Info->numEntry = btree_Info->N + 1;
-            
-        ret = saveNode(root, tree);
-        if (ret != RC_OK) {
-            printf("%s save Node fail\n", __func__);
-            return -1;
-        }
-    }
-*/
     // Get the node Position for the inserted Key
     ret = findKey (tree, key, &result);
     if (ret == 0 and result == rid) {
@@ -576,7 +564,30 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
 
     //Empty Tree
     if(rootPage = 0) {
-        creatNode(tree, key, NT_LEAF);  //creat a leaf node
+        leafNode = creatNode(tree, key, NT_LEAF);  //creat a leaf node
+        rootNode = creatNode(tree, key, NT_ROOT);  //creat a leaf node
+
+        rootNode->pointers.pArr[0]= leafNode->PageNum;
+        
+        leafNode->pointers.RIDArr[0] = rid;
+        leafNode->pre = NULL;
+        learNode->next = NULL;
+
+        //Save Root Node        
+        ret = saveNode(rootNode, tree);
+        if (ret != RC_OK) {
+            printf("%s save Node fail\n", __func__);
+            return -1;
+        }
+        
+        //Save Leaf node
+        ret = saveNode(leafNode, tree);
+        if (ret != RC_OK) {
+            printf("%s save Node fail\n", __func__);
+            return -1;
+        }
+
+         
     }
 
     node = findLeafNode(tree, rootPage, key);
