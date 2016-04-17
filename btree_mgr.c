@@ -492,13 +492,13 @@ RC insertKeyIntoLeaf(BTreeHandle *tree, struct Node *node, Value *key) {
     return ret;
 }
 
-RC splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID rid) {
+struct Node * splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID rid) {
     struct Node *newLeafNode;
     struct BT_Info *btreeInfo;
     int i, j, InsertPos=0, N, keyOffset, RIDOffset;
     struct  Value * tmpKeyArr;
     struct RID * tmpRIDArr;
-    int ret = 0;
+    int ret=0;
     
     N = btreeInfo->N;
 
@@ -558,14 +558,14 @@ RC splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID rid) {
     memcpy(curLeaf->KeyArr, tmpKeyArr + keyOffset , curLeaf->NumEntry * sizeof(struct Value));
     memcpy(curLeaf->pointers.RIDArr, tmpRIDArr + RIDOffset, curLeaf->NumEntry * sizeof(struct RID));
     
-    return ret;
+    return newLeafNode;
 }
 
 RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
     int ret = 0, availPage, rootPage;
     struct BT_Info *btreeInfo;
     struct Node leaf;
-    struct Node *rootNode, *leafNode;
+    struct Node *rootNode, *leafNode, *newLeafNode;
     struct RID result;
 
     btreeInfo = (struct BT_Info *)tree->mgmtData;
@@ -614,7 +614,7 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         insertKeyIntoLeaf(tree, &leaf, key); //simple case
     else {
         // Leaf is Full
-        ret = splitLeaf(tree, &leaf, key, rid);
+        newLeafNode = splitLeaf(tree, &leaf, key, rid);
     }
 /* 
         NonLeafFull
