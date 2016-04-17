@@ -199,12 +199,10 @@ struct Node findLeafNode(BTreeHandle *tree, int PageNum, Value * key ) {
                 node.PageNum,
                 node.NodeType,
                 node.NumEntry,
-                node.pre,
+                node.parent,
                 node.next);
     //Caculate Key Array Size
     KeyArrSize = sizeof(struct Value) * (btree_info->N);
-
-    // Malloc Array for Key Array
     node.KeyArr = (struct Value *) malloc(KeyArrSize);
     
     //Copy data from DISK
@@ -357,7 +355,7 @@ struct Node * creatNode(BTreeHandle *tree, Value *key, NodeType nodeType) {
 
     node->KeyArr = (struct Value *)malloc(sizeof(struct Value)* MaxNumKeys);
 
-    memcpy( &node->KeyArr[0], key, sizeof(struct Value));
+    memcpy(&(node->KeyArr[0]), key, sizeof(struct Value));
     /* 
     switch (tree->keyType) {
         case DT_INT:
@@ -404,10 +402,11 @@ struct Node * creatNode(BTreeHandle *tree, Value *key, NodeType nodeType) {
 }
 
 RC saveNode(struct Node *node, BTreeHandle *tree) {
-        int offset = 0, availPage, ret=0;
+        int offset = 0, availPage, ret=0, lenArr;
         struct BT_Info *btree_info;
         BM_PageHandle *page = MAKE_PAGE_HANDLE();
     
+        lenArr = btree_info->N;
         btree_info = (struct BT_Info *)tree->mgmtData;
         //availPage = btree_info->totalPages; not true
 
@@ -422,21 +421,21 @@ RC saveNode(struct Node *node, BTreeHandle *tree) {
 
         //save  key array to page
         offset = sizeof(Node);
-        memcpy(page->data + offset, node->KeyArr, sizeof(struct Value) * (node->NumEntry));
+        memcpy(page->data + offset, node->KeyArr, sizeof(struct Value) * lenArr);
         
         // save Pointer array to page 
-        offset += sizeof(struct Value) * (node->NumEntry);
+        offset += sizeof(struct Value) * lenArr;
         switch (node->NodeType) {
             case NT_ROOT:
-                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (node->NumEntry));
+                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (lenArr + 1));
                 free(node->pointers.pArr);
                 break;
             case NT_LEAF:
-                memcpy(page->data + offset, node->pointers.RIDArr, sizeof(struct RID) * (node->NumEntry));
+                memcpy(page->data + offset, node->pointers.RIDArr, sizeof(struct RID) * lenArr);
                 free(node->pointers.RIDArr);
                 break; 
             case NT_NON_LEAF:
-                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (node->NumEntry));
+                memcpy(page->data + offset, node->pointers.pArr, sizeof(int) * (lenArr + 1));
                 free(node->pointers.pArr);
                 break;
         }
@@ -493,14 +492,81 @@ RC insertKeyIntoLeaf(BTreeHandle *tree, struct Node *node, Value *key) {
     return ret;
 }
 
+RC splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID rid) {
+    struct Node *newLeafNode;
+    struct BT_Info *btreeInfo;
+    int i, j, InsertPos=0, ret, N, keyOffset, RIDOffset;
+    struct  Value * tmpKeyArr;
+    struct RID * tmpRIDArr;
+    
+    N = btreeInfo->N;
+
+    btreeInfo = (struct BT_Info *)tree->mgmtData;
+    tmpKeyArr = (struct Value *) malloc(sizeof(struct Value) * (N + 1));
+    tmpRIDArr = (struct RID *) malloc(sizeof(struct RID) * (N + 1));
+   
+    //maintain the link 
+    newLeafNode = creatNode(tree, key, NT_LEAF);  //creat a leaf node
+    newLeafNode->next = curLeaf->PageNum; 
+
+    // index of original key array
+    j=0;
+
+    // Sort the key and save in temp array
+    for(i=0;i<= N; i++){
+        ret = memcmp(key, &(curLeaf->KeyArr[j]), sizeof(struct Value));
+        if(ret <0 || j == N){
+            memcpy(&tmpKeyArr[i], key, sizeof(Value));
+            memcpy(&tmpRIDArr[i], &rid, sizeof(RID));
+
+            //copy leaf key and RID to tmp array
+            memcpy(&tmpKeyArr[i+1], &curLeaf->KeyArr[j], sizeof(Value) * (N-j));
+            memcpy(&tmpRIDArr[i+1], &curLeaf->pointers.RIDArr[j], sizeof(RID) * (N-j));
+            break;
+        }
+        else {
+            memcpy(&tmpKeyArr[i], &curLeaf->KeyArr[j], sizeof(Value));
+            memcpy(&tmpRIDArr[i], &curLeaf->pointers.RIDArr[j], sizeof(RID));
+            j++;
+        }
+    }
+    
+    //caculate new num entry for both node
+    if((btreeInfo->N) % 2 ==0) {
+        newLeafNode->NumEntry = btreeInfo->N /2 + 1;
+        curLeaf->NumEntry = (btreeInfo->N)/2;
+    }
+    else{
+        newLeafNode->NumEntry = (btreeInfo->N) /2;
+        curLeaf->NumEntry = (btreeInfo->N)/2;
+    }
+    
+    //clean the array of key and rid for both leaf node
+    memset(curLeaf->KeyArr, 0, sizeof(struct Value) * N);
+    memset(curLeaf->pointers.RIDArr, 0, sizeof(struct RID) * N);
+
+    //fullfill the key array for each node
+
+    memcpy(newLeafNode->KeyArr, tmpKeyArr, newLeafNode->NumEntry * sizeof(struct Value));
+    memcpy(newLeafNode->pointers.RIDArr, tmpRIDArr, newLeafNode->NumEntry * sizeof(struct RID));
+        
+    //fullfill the RID array for each node
+    keyOffset = newLeafNode->NumEntry * sizeof(struct Value);
+    RIDOffset = newLeafNode->NumEntry * sizeof(struct RID);
+
+    memcpy(curLeaf->KeyArr, tmpKeyArr + keyOffset , curLeaf->NumEntry * sizeof(struct Value));
+    memcpy(curLeaf->pointers.RIDArr, tmpRIDArr + RIDOffset, curLeaf->NumEntry * sizeof(struct RID));
+    
+}
+
 RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
     int ret = 0, availPage, rootPage;
-    struct BT_Info *btree_Info;
-    struct Node *newNode, node;
+    struct BT_Info *btreeInfo;
+    struct Node leaf;
     struct Node *rootNode, *leafNode;
     struct RID result;
 
-    btree_Info = (struct BT_Info *)tree->mgmtData;
+    btreeInfo = (struct BT_Info *)tree->mgmtData;
 
     // Get the node Position for the inserted Key
     ret = findKey(tree, key, &result);
@@ -512,7 +578,7 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
     printf("Key do not exist in the tree\n");
 
     //Key is not exist in the tree
-    rootPage = btree_Info->rootPageNum;
+    rootPage = btreeInfo->rootPageNum;
 
     //Empty Tree
     if(rootPage = 0) {
@@ -520,9 +586,10 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         rootNode = creatNode(tree, key, NT_ROOT);  //creat a leaf node
 
         rootNode->pointers.pArr[0]= leafNode->PageNum;
-        
+       
+        leafNode->parent = rootNode->PageNum; 
         leafNode->pointers.RIDArr[0] = rid;
-
+        
         //Save Root Node        
         ret = saveNode(rootNode, tree);
         if (ret != RC_OK) {
@@ -536,27 +603,28 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
             printf("%s save Node fail\n", __func__);
             return -1;
         }
-
-         
     }
 
-    node = findLeafNode(tree, rootPage, key);
-   
-    if(node.NumEntry < btree_Info->N)
-        //simple case
-        insertKeyIntoLeaf(tree, &node, key);
-//    else {
-/*
-        //(b) leaf overflow
-(b) leaf overflow
-(c) non-leaf overflow
-(d) new root
-
-        newNode = creatNode(tree, key, NT_NON_LEAF);  // create a new node as node is full 
+    leaf = findLeafNode(tree, rootPage, key);
+  
+    // Leaf is not full 
+    if(leaf.NumEntry < btreeInfo->N)
+        insertKeyIntoLeaf(tree, &leaf, key); //simple case
+    else {
+        // Leaf is Full
+        ret = splitLeaf(tree, &leaf, key, rid);
     }
+/* 
+        NonLeafFull
+        RootFull
+
+
+        SplitLeaf()
+        InsertNewLeaf`sSmallest key into parent
+        // leafOverFlow        
 
     ret  = updateTree();
-  */  
+*/    
     return ret;
 }
 

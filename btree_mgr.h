@@ -51,7 +51,7 @@ typedef struct Node {
     int NodeID;
     int NodeType;
     int NumEntry;
-    int pre;
+    int parent;
     int next;
     struct Value *KeyArr;
  
