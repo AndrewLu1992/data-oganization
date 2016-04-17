@@ -558,7 +558,8 @@ struct Node * splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID
    
     //maintain the link 
     newLeafNode = creatNode(tree, key, NT_LEAF);  //creat a leaf node
-    newLeafNode->next = curLeaf->PageNum;
+    newLeafNode->next = curLeaf->next;
+    curLeaf->next = newLeafNode->PageNum;
     newLeafNode->parent = curLeaf->parent;
 
     // index of original key array
@@ -585,12 +586,12 @@ struct Node * splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID
     
     //caculate new num entry for both node
     if((btreeInfo->N) % 2 ==0) {
-        newLeafNode->NumEntry = btreeInfo->N /2 + 1;
-        curLeaf->NumEntry = (btreeInfo->N)/2;
+        newLeafNode->NumEntry = btreeInfo->N /2 ;
+        curLeaf->NumEntry = (btreeInfo->N)/2+1;
     }
     else{
-        newLeafNode->NumEntry = (btreeInfo->N) /2;
-        curLeaf->NumEntry = (btreeInfo->N)/2;
+        newLeafNode->NumEntry = (btreeInfo->N+1) /2;
+        curLeaf->NumEntry = (btreeInfo->N+1)/2;
     }
     
     //clean the array of key and rid for both leaf node
@@ -599,30 +600,30 @@ struct Node * splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID
 
     //fullfill the key array for each node
 
-    memcpy(newLeafNode->KeyArr, tmpKeyArr, newLeafNode->NumEntry * sizeof(struct Value));
-    memcpy(newLeafNode->pointers.RIDArr, tmpRIDArr, newLeafNode->NumEntry * sizeof(struct RID));
+    memcpy(curLeaf->KeyArr, tmpKeyArr, newLeafNode->NumEntry * sizeof(struct Value));
+    memcpy(curLeaf->pointers.RIDArr, tmpRIDArr, newLeafNode->NumEntry * sizeof(struct RID));
         
     //fullfill the RID array for each node
-    keyOffset = newLeafNode->NumEntry * sizeof(struct Value);
-    RIDOffset = newLeafNode->NumEntry * sizeof(struct RID);
+    keyOffset = curLeaf->NumEntry * sizeof(struct Value);
+    RIDOffset = curLeaf->NumEntry * sizeof(struct RID);
 
-    memcpy(curLeaf->KeyArr, tmpKeyArr + keyOffset , curLeaf->NumEntry * sizeof(struct Value));
-    memcpy(curLeaf->pointers.RIDArr, tmpRIDArr + RIDOffset, curLeaf->NumEntry * sizeof(struct RID));
+    memcpy(newLeafNode->KeyArr, tmpKeyArr + keyOffset , curLeaf->NumEntry * sizeof(struct Value));
+    memcpy(newLeafNode->pointers.RIDArr, tmpRIDArr + RIDOffset, curLeaf->NumEntry * sizeof(struct RID));
     
     return newLeafNode;
 }
 
+RC splitNonLeafNode(struct BT_Info *btreeInfo, int ParentPageNum, struct Value Key) {
+    int ret;
+    return ret;   
+}     
 
-
-RC InsertKeyIntoParent(struct BT_Info *btreeInfo,struct Node *node)
+RC InsertKeyIntoParent(struct BT_Info *btreeInfo, int ParentPageNum, struct Value key)
 {
-    int ParentPageNum = node->parent;
     int ret=0, i, insertPos;
     struct Node *parentNode;
-    struct Value key;
     
     parentNode = getNodeFromPage(btreeInfo, ParentPageNum);
-    key = node->KeyArr[0];
 
     // Check space to insert the new key
     if(parentNode->NumEntry < btreeInfo->N){
@@ -642,10 +643,9 @@ RC InsertKeyIntoParent(struct BT_Info *btreeInfo,struct Node *node)
         }
         
         memcpy(&(parentNode->KeyArr[insertPos]), &key, sizeof(struct Value));  //inserted into the parent is the smallest value of the right node
-        
     }
     else {
-        
+        splitNonLeafNode(btreeInfo, ParentPageNum, key);
     }
 }
 
@@ -711,7 +711,7 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         saveNode(&leaf, tree);        
 
         //Update non-leaf nodes
-        InsertKeyIntoParent(btreeInfo,&leaf);
+        InsertKeyIntoParent(btreeInfo, newLeafNode->parent, newLeafNode->KeyArr[0]);
     }
 /* 
         NonLeafFull
