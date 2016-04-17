@@ -495,9 +495,10 @@ RC insertKeyIntoLeaf(BTreeHandle *tree, struct Node *node, Value *key) {
 RC splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID rid) {
     struct Node *newLeafNode;
     struct BT_Info *btreeInfo;
-    int i, j, InsertPos=0, ret, N, keyOffset, RIDOffset;
+    int i, j, InsertPos=0, N, keyOffset, RIDOffset;
     struct  Value * tmpKeyArr;
     struct RID * tmpRIDArr;
+    int ret = 0;
     
     N = btreeInfo->N;
 
@@ -557,6 +558,7 @@ RC splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID rid) {
     memcpy(curLeaf->KeyArr, tmpKeyArr + keyOffset , curLeaf->NumEntry * sizeof(struct Value));
     memcpy(curLeaf->pointers.RIDArr, tmpRIDArr + RIDOffset, curLeaf->NumEntry * sizeof(struct RID));
     
+    return ret;
 }
 
 RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
