@@ -613,39 +613,127 @@ struct Node * splitLeaf(BTreeHandle *tree, struct Node *curLeaf, Value *key, RID
     return newLeafNode;
 }
 
-RC splitNonLeafNode(struct BT_Info *btreeInfo, int ParentPageNum, struct Value Key) {
+RC splitNonLeafParentNode(struct BT_Info *btreeInfo, struct Node *parentNode, struct Value key, int childPageNum, struct Node *splitedNode) {
     int ret;
+    struct Node * newNode;
+    struct Value *tmpArray;
+
+    tmpArray = (struct Value *) malloc(sizeof(struct Value) * (btreeInfo->N+1));
+
+    if(parentNode->NumEntry % 2 !=0) {
+    //    sort()
+
+      //  newLeafNode = creatNode(tree, key, NT_NON_LEAF);    
+        // Insert into a list and sort it.
+        //fetch the middle value
+        //insert it to the parent node.
+        
+    }
+    
+    
     return ret;   
 }     
-
-RC InsertKeyIntoParent(struct BT_Info *btreeInfo, int ParentPageNum, struct Value key)
+/*
+RC InsertKeyIntoKeyList(struct BT_Info *btreeInfo, struct Node *Node, struct Value key)
 {
-    int ret=0, i, insertPos;
-    struct Node *parentNode;
+    int ret, i, j;
+    struct Value *tmpKeyArr;
+
+    // find the correct position to insert the key
+    for(i=0;i< Node->NumEntry;i++) {
+        ret = memcmp(&key, &Node->KeyArr[i], sizeof(struct Value));
+        if(ret < 0) {
+            insertPos = i;
+            break;
+        }
+    }
     
+    Node->NumEntry++;
+
+    // allocate one array to save the sorted key    
+    tmpKeyArr = (struct Value *) malloc(sizeof(struct Value) * Node->NumEntry);
+    
+    // insert  key into the sorted key array
+    j=0;
+    for(i=0; i< Node->NumEntry ; i++){
+        if (i == insertPos)
+            tmpKeyArr[i] = key;
+        else {
+            tmpKeyArr[i] = Node->KeyArr[j];
+            j++;
+        }
+    }
+    
+    // put back to the key Arrar
+    if (Node->NumEntry <= btreeInfo->N) 
+        memcpy(Node->KeyArr, tmpKeyArr, sizeof(struct Value) * Node->NumEntry);
+    else {
+        memcpy(Node->KeyArr, tmpKeyArr, sizeof(struct Value) * btreeInfo->N);
+        
+    }
+
+}
+*/
+
+RC InsKey2UnfullPar(struct BT_Info *btreeInfo, struct Value key, int childPageNum, struct Node *splitedNode, struct Node *parentNode) {
+    int ret = 0, i, insertPos;
+
+    // find the correct position to insert the key
+    for(i=0;i< parentNode->NumEntry;i++) {
+        ret = memcmp(&key, &parentNode->KeyArr[i], sizeof(struct Value));
+        if(ret < 0) {
+            insertPos = i;
+            break;
+        }
+    }
+    
+    //move key from i to i+1 and i+1 to i+2....
+    for(i=parentNode->NumEntry -1; i >= insertPos; i--) 
+        parentNode->KeyArr[i+1] = parentNode->KeyArr[i];
+        
+    parentNode->KeyArr[i] = key;
+
+    //find the position that insert the pointer
+    for(i=0; i< parentNode->NumEntry+1;i++) {
+        ret = memcmp(&splitedNode->PageNum, &parentNode->pointers.pArr[i], sizeof(int));
+        if (ret ==0) {
+            insertPos = i+1;
+            break;
+        }
+    }
+
+    //move pointer from i to i+1 and i+1 to i+2....
+    for(i= parentNode->NumEntry; i >= insertPos;i--) {
+        parentNode->pointers.pArr[i+1] = parentNode->pointers.pArr[i];
+    }
+
+    parentNode->pointers.pArr[insertPos] = childPageNum;
+    
+    parentNode->NumEntry++;
+    
+    return 0;
+}
+
+
+RC InsertKeyIntoParent(struct BT_Info *btreeInfo,struct Node *splitedNode,  struct Node *newNode)
+{
+    int ret=0, i, ParentPageNum = splitedNode->parent, childPageNum;
+    struct Node *parentNode;
+    struct Value key;
+    
+    key = newNode->KeyArr[0];
+    childPageNum = newNode->PageNum;
+
+    ParentPageNum = newNode->parent;
     parentNode = getNodeFromPage(btreeInfo, ParentPageNum);
 
-    // Check space to insert the new key
-    if(parentNode->NumEntry < btreeInfo->N){
-        // find the correct position to insert the key
-        for(i=0;i< parentNode->NumEntry;i++) {
-            ret = memcmp(&key, &parentNode->KeyArr[i], sizeof(struct Value));
-            if(ret > 0) {
-                insertPos = i;
-                break;
-            }
-        }
+    // Do not need to split Node
         
-        //move key from i to i+1 and i+1 to i+2....
-        for(i= parentNode->NumEntry -1; i >= insertPos;i--) {
-            parentNode->KeyArr[i+1] = parentNode->KeyArr[i];
-            parentNode->pointers.pArr[i+1] = parentNode->pointers.pArr[i];
-        }
-        
-        memcpy(&(parentNode->KeyArr[insertPos]), &key, sizeof(struct Value));  //inserted into the parent is the smallest value of the right node
+    if (parentNode->NumEntry <= btreeInfo->N) {
+        ret = InsKey2UnfullPar(btreeInfo, key, childPageNum, splitedNode, parentNode);
     }
     else {
-        splitNonLeafNode(btreeInfo, ParentPageNum, key);
+        splitNonLeafParentNode(btreeInfo, parentNode, key, childPageNum, splitedNode);
     }
 }
 
@@ -711,7 +799,7 @@ RC insertKey (BTreeHandle *tree, Value *key, RID rid) {
         saveNode(&leaf, tree);        
 
         //Update non-leaf nodes
-        InsertKeyIntoParent(btreeInfo, newLeafNode->parent, newLeafNode->KeyArr[0]);
+        InsertKeyIntoParent(btreeInfo, &leaf, newLeafNode);
     }
 /* 
         NonLeafFull
